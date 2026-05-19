@@ -61,15 +61,52 @@ const vocTime = new Map();
 const vocJoin = new Map();
 const warns = new Map();
 
+// ══ MESSAGES ROTATIFS (toutes les 10 min) ══
+const messagesRotatifs = [
+  { title: '💬 Le savais-tu ?', desc: 'Plus tu parles sur le serveur, plus tu montes dans le top messages !' },
+  { title: '🎧 Tip vocal', desc: 'Rejoins un salon vocal pour grimper dans le top vocal !' },
+  { title: '🎁 Giveaway', desc: 'Des giveaways sont organisés régulièrement. Reste connecté !' },
+  { title: '📢 Actu serveur', desc: 'Nouveau salon disponible ! Explore toutes les catégories.' },
+  { title: '🌸 Bienvenue', desc: 'N\'oublie pas de choisir tes rôles dans le salon dédié !' },
+  { title: '⚡ Rappel', desc: 'En cas de problème, ouvre un ticket ! Le staff est là pour toi.' },
+  { title: '🏆 Classement', desc: 'Le top 3 messages et vocal reçoit un rôle exclusif !' },
+  { title: '🎮 Jeux', desc: 'Active tes accès aux salons de jeux dans le salon accès rapides !' },
+];
+let rotIndex = 0;
+let lastRotMsg = null;
+
+async function sendMessageRotatif() {
+  try {
+    const guild = client.guilds.cache.first();
+    if (!guild) return;
+    const salon = guild.channels.cache.get(IDS.SALON_STATS);
+    if (!salon) return;
+    if (lastRotMsg) await lastRotMsg.delete().catch(() => {});
+    const data = messagesRotatifs[rotIndex % messagesRotatifs.length];
+    rotIndex++;
+    const guild2 = client.guilds.cache.first();
+    const membres = guild2.memberCount;
+    const online = guild2.members.cache.filter(m => m.presence?.status && m.presence.status !== 'offline').size;
+    const embed = new EmbedBuilder()
+      .setColor(COLOR)
+      .setTitle(`${data.title}`)
+      .setDescription(`${data.desc}\n\n👥 **${membres}** membres  •  🟢 **${online}** en ligne  •  💎 **${guild2.premiumSubscriptionCount || 0}** boosts`)
+      .setTimestamp();
+    lastRotMsg = await salon.send({ embeds: [embed] });
+  } catch (e) { console.error('Rotatif:', e.message); }
+}
+
 // ══ READY ══
 client.once('ready', async () => {
-  console.log(`✅ Bot connecté : ${client.user.tag}`);
+  console.log(`✅ Connecté : ${client.user.tag}`);
   updateStats();
   setInterval(updateStats, 60000);
   setInterval(() => updateTopVoc(), 300000);
+  sendMessageRotatif();
+  setInterval(sendMessageRotatif, 10 * 60 * 1000);
 });
 
-// ══ STATS AUTO ══
+// ══ STATS ══
 async function updateStats() {
   try {
     const guild = client.guilds.cache.first();
@@ -89,24 +126,25 @@ async function updateStats() {
     if (!salon) return;
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n📊  STATISTIQUES DU SERVEUR\n━━━━━━━━━━━━━━━━━━━━━━')
-      .setDescription('> Statistiques mises à jour en temps réel.')
+      .setAuthor({ name: '📊 Statistiques du serveur', iconURL: guild.iconURL({ dynamic: true }) })
+      .setDescription('> Données mises à jour en temps réel.')
       .addFields(
-        { name: '👥 Membres', value: `\`\`\`${total}\`\`\``, inline: true },
-        { name: '🟢 En ligne', value: `\`\`\`${online}\`\`\``, inline: true },
-        { name: '🎧 En vocal', value: `\`\`\`${voc}\`\`\``, inline: true },
-        { name: '💎 Boosts', value: `\`\`\`${boosts}\`\`\``, inline: true },
+        { name: '👥 Membres', value: `**${total}**`, inline: true },
+        { name: '🟢 En ligne', value: `**${online}**`, inline: true },
+        { name: '🎧 En vocal', value: `**${voc}**`, inline: true },
+        { name: '💎 Boosts', value: `**${boosts}**`, inline: true },
       )
+      .setThumbnail(guild.iconURL({ dynamic: true }))
       .setTimestamp()
-      .setFooter({ text: '• Mise à jour automatique toutes les minutes' });
-    const msgs = await salon.messages.fetch({ limit: 5 });
-    const ex = msgs.find(m => m.author.id === client.user.id && m.embeds.length);
+      .setFooter({ text: `Naytawa • Mise à jour auto` });
+    const msgs = await salon.messages.fetch({ limit: 10 });
+    const ex = msgs.find(m => m.author.id === client.user.id && m.embeds.length && m.embeds[0]?.author?.name?.includes('Statistiques'));
     if (ex) await ex.edit({ embeds: [embed] });
     else await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Stats:', e.message); }
 }
 
-// ══ BIENVENUE + AUTO ROLE ══
+// ══ BIENVENUE ══
 client.on('guildMemberAdd', async member => {
   try {
     const role = member.guild.roles.cache.get(IDS.ROLE_MEMBRE);
@@ -115,11 +153,11 @@ client.on('guildMemberAdd', async member => {
     if (!salon) return;
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setTitle(`✨ Bienvenue sur le serveur !`)
-      .setDescription(`> Bienvenue à toi ${member} ! Nous sommes ravis de t'accueillir parmi nous 💖\n\n📜 Lis le règlement\n🎭 Choisis tes rôles\n🎮 Profite du serveur !`)
+      .setAuthor({ name: `Bienvenue sur Naytawa !`, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`Bienvenue à toi ${member} ! Nous sommes ravis de t'accueillir 💖\n\n> 📜 Lis le règlement\n> 🎭 Choisis tes rôles\n> 🎮 Profite du serveur !`)
       .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
       .setTimestamp()
-      .setFooter({ text: `Membre #${member.guild.memberCount}` });
+      .setFooter({ text: `Membre #${member.guild.memberCount} • Naytawa` });
     await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Bienvenue:', e.message); }
 });
@@ -134,28 +172,25 @@ client.on('messageCreate', async message => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const cmd = args.shift().toLowerCase();
 
-  // PING
   if (cmd === 'ping') {
-    const m = await message.reply('🏓 Calcul...');
-    await m.edit(`🏓 **Pong !** Latence : \`${m.createdTimestamp - message.createdTimestamp}ms\``);
+    const m = await message.reply('🏓');
+    await m.edit(`🏓 **Pong !** \`${m.createdTimestamp - message.createdTimestamp}ms\``);
   }
 
-  // HELP
   if (cmd === 'help') {
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n📋  COMMANDES DU BOT\n━━━━━━━━━━━━━━━━━━━━━━')
+      .setAuthor({ name: '📋 Commandes — Naytawa Bot' })
       .addFields(
         { name: '🛡️ Modération', value: '`-mute @user <min>` `-unmute @user`\n`-ban @user <raison>` `-kick @user`\n`-warn @user <raison>` `-clear <1-100>`' },
-        { name: '📊 Information', value: '`-ping` `-avatar [@user]`' },
-        { name: '⚙️ Panels (Admin)', value: '`-panel reglement`\n`-panel roles`\n`-panel tickets`\n`-panel jeux`\n`-panel top`\n`-panel plainte`' },
+        { name: '📊 Info', value: '`-ping` `-avatar [@user]`' },
+        { name: '⚙️ Panels', value: '`-panel reglement` `-panel roles`\n`-panel tickets` `-panel jeux`\n`-panel top` `-panel plainte`' },
       )
       .setFooter({ text: `Préfixe : ${PREFIX}` })
       .setTimestamp();
     await message.reply({ embeds: [embed] });
   }
 
-  // CLEAR
   if (cmd === 'clear') {
     if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply('❌ Permission refusée.');
     const n = parseInt(args[0]);
@@ -164,76 +199,69 @@ client.on('messageCreate', async message => {
     const m = await message.channel.send(`✅ **${n}** messages supprimés.`);
     setTimeout(() => m.delete().catch(() => {}), 3000);
     const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('🗑️ Clear').setDescription(`**Modérateur :** ${message.author.tag}\n**Salon :** <#${message.channel.id}>\n**Quantité :** ${n} messages`).setTimestamp()] });
+    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('🗑️ Clear').setDescription(`**Par :** ${message.author.tag}\n**Salon :** <#${message.channel.id}>\n**Quantité :** ${n}`).setTimestamp()] });
   }
 
-  // BAN
   if (cmd === 'ban') {
     if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply('❌ Permission refusée.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('❌ Mentionne un membre.');
-    const reason = args.slice(1).join(' ') || 'Aucune raison fournie';
+    const reason = args.slice(1).join(' ') || 'Aucune raison';
     await target.ban({ reason });
-    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('🔨 Bannissement').setDescription(`**Membre :** ${target.user.tag}\n**Raison :** ${reason}`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setAuthor({ name: '🔨 Bannissement' }).setDescription(`**Membre :** ${target.user.tag}\n**Raison :** ${reason}`).setTimestamp()] });
     const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
     if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('🔨 Ban').setDescription(`**Banni :** ${target.user.tag}\n**Par :** ${message.author.tag}\n**Raison :** ${reason}`).setTimestamp()] });
   }
 
-  // KICK
   if (cmd === 'kick') {
     if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) return message.reply('❌ Permission refusée.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('❌ Mentionne un membre.');
-    const reason = args.slice(1).join(' ') || 'Aucune raison fournie';
+    const reason = args.slice(1).join(' ') || 'Aucune raison';
     await target.kick(reason);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('👢 Expulsion').setDescription(`**Membre :** ${target.user.tag}\n**Raison :** ${reason}`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setAuthor({ name: '👢 Expulsion' }).setDescription(`**Membre :** ${target.user.tag}\n**Raison :** ${reason}`).setTimestamp()] });
     const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('👢 Kick').setDescription(`**Expulsé :** ${target.user.tag}\n**Par :** ${message.author.tag}\n**Raison :** ${reason}`).setTimestamp()] });
+    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('👢 Kick').setDescription(`**Expulsé :** ${target.user.tag}\n**Par :** ${message.author.tag}`).setTimestamp()] });
   }
 
-  // WARN
   if (cmd === 'warn') {
     if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply('❌ Permission refusée.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('❌ Mentionne un membre.');
-    const reason = args.slice(1).join(' ') || 'Aucune raison fournie';
+    const reason = args.slice(1).join(' ') || 'Aucune raison';
     const w = warns.get(target.id) || [];
-    w.push({ reason, by: message.author.tag, date: new Date().toLocaleDateString('fr-FR') });
+    w.push({ reason, by: message.author.tag });
     warns.set(target.id, w);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('⚠️ Avertissement').setDescription(`**Membre :** ${target.user.tag}\n**Raison :** ${reason}\n**Total warns :** ${w.length}`).setTimestamp()] });
-    try { await target.send(`⚠️ Tu as reçu un avertissement sur **${message.guild.name}**\n**Raison :** ${reason}`); } catch {}
+    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setAuthor({ name: '⚠️ Avertissement' }).setDescription(`**Membre :** ${target.user.tag}\n**Raison :** ${reason}\n**Total :** ${w.length} warn(s)`).setTimestamp()] });
+    try { await target.send(`⚠️ Avertissement sur **Naytawa** : ${reason}`); } catch {}
     const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
     if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('⚠️ Warn').setDescription(`**Averti :** ${target.user.tag}\n**Par :** ${message.author.tag}\n**Raison :** ${reason}\n**Total :** ${w.length}`).setTimestamp()] });
   }
 
-  // MUTE
   if (cmd === 'mute') {
     if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply('❌ Permission refusée.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('❌ Mentionne un membre.');
     const duree = parseInt(args[1]) || 10;
     await target.timeout(duree * 60 * 1000);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('🔇 Mute').setDescription(`**Membre :** ${target.user.tag}\n**Durée :** ${duree} minutes`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setAuthor({ name: '🔇 Mute' }).setDescription(`**Membre :** ${target.user.tag}\n**Durée :** ${duree} minutes`).setTimestamp()] });
     const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
     if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('🔇 Mute').setDescription(`**Muté :** ${target.user.tag}\n**Par :** ${message.author.tag}\n**Durée :** ${duree} min`).setTimestamp()] });
   }
 
-  // UNMUTE
   if (cmd === 'unmute') {
     if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply('❌ Permission refusée.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('❌ Mentionne un membre.');
     await target.timeout(null);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('🔊 Unmute').setDescription(`**Membre :** ${target.user.tag} a été démuté.`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setAuthor({ name: '🔊 Unmute' }).setDescription(`${target.user.tag} a été démuté.`).setTimestamp()] });
   }
 
-  // AVATAR
   if (cmd === 'avatar') {
     const target = message.mentions.users.first() || message.author;
-    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle(`🖼️ Avatar de ${target.tag}`).setImage(target.displayAvatarURL({ dynamic: true, size: 1024 }))] });
+    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setAuthor({ name: `Avatar de ${target.tag}` }).setImage(target.displayAvatarURL({ dynamic: true, size: 1024 }))] });
   }
 
-  // PANEL
   if (cmd === 'panel') {
     if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply('❌ Permission refusée.');
     const type = args[0]?.toLowerCase();
@@ -243,8 +271,10 @@ client.on('messageCreate', async message => {
     else if (type === 'jeux') await sendPanelJeux(message.guild);
     else if (type === 'top') { await sendTopMessages(message.guild); await sendTopVoc(message.guild); }
     else if (type === 'plainte') await sendPanelPlainte(message.guild);
-    else return message.reply('❌ Types dispo : `reglement` `roles` `tickets` `jeux` `top` `plainte`');
-    await message.react('✅');
+    else return message.reply('❌ Types : `reglement` `roles` `tickets` `jeux` `top` `plainte`');
+    const confirm = await message.reply(`✅ Panel envoyé dans <#${message.channel.id}>`);
+    setTimeout(() => confirm.delete().catch(() => {}), 5000);
+    await message.delete().catch(() => {});
   }
 });
 
@@ -252,81 +282,101 @@ client.on('messageCreate', async message => {
 async function sendPanelReglement(guild) {
   try {
     const salon = guild.channels.cache.get(IDS.SALON_REGLEMENT);
-    if (!salon) { console.log('Salon reglement introuvable'); return; }
+    if (!salon) { console.log('❌ Salon reglement introuvable'); return; }
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n📜  RÈGLEMENT DU SERVEUR\n━━━━━━━━━━━━━━━━━━━━━━')
+      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
+      .setTitle('📜  Règlement du serveur')
       .setDescription([
-        '> Bienvenue sur notre serveur ! Merci de prendre le temps de lire ces règles.',
+        '> Bienvenue ! Merci de lire et respecter ces règles.',
         '',
-        '**` 01 `** 🤝  Respectez chaque membre sans exception.',
-        '**` 02 `** 🚫  Toute forme de discrimination est interdite.',
-        '**` 03 `** 💬  Le spam, flood et publicité non autorisée sont prohibés.',
-        '**` 04 `** 🔞  Aucun contenu NSFW en dehors des salons dédiés.',
-        '**` 05 `** 🎙️  Comportement correct obligatoire en vocal.',
+        '**` 01 `** 🤝  Respectez chaque membre.',
+        '**` 02 `** 🚫  Zéro discrimination de toute forme.',
+        '**` 03 `** 💬  Pas de spam, flood ou pub non autorisée.',
+        '**` 04 `** 🔞  Contenu NSFW interdit hors salons dédiés.',
+        '**` 05 `** 🎙️  Bonne conduite obligatoire en vocal.',
         '**` 06 `** ⚖️  Les décisions du staff sont définitives.',
         '**` 07 `** 🔗  Aucun lien suspect ou malveillant.',
         '**` 08 `** 🎭  Une seule identité par personne.',
         '',
-        '*En restant sur ce serveur, tu acceptes l\'ensemble de ces règles.*',
+        '*En restant sur ce serveur, tu acceptes ces règles.*',
       ].join('\n'))
       .setImage('https://media.discordapp.net/attachments/1505541381198975036/1506024629431435314/dc0441577ed4e4af0a57adcbe419b019.gif?ex=6a0cc23c&is=6a0b70bc&hm=30de254d883c12be4f4c1cb87ee090ded8a47427503361798de23916ef3dc15a&width=432&height=243&')
-      .setFooter({ text: '• Tout manquement entraîne une sanction adaptée.' });
+      .setFooter({ text: 'Naytawa • Tout manquement entraîne une sanction.' });
+
+    // Auto-ping qui s'efface
+    const ping = await salon.send({ content: `<@&${IDS.ROLE_MEMBRE}>` });
+    setTimeout(() => ping.delete().catch(() => {}), 5000);
     await salon.send({ embeds: [embed] });
-    console.log('Panel reglement envoyé !');
-  } catch (e) { console.error('Erreur panel reglement:', e.message); }
+    console.log('✅ Panel reglement envoyé');
+  } catch (e) { console.error('Panel reglement:', e.message); }
 }
 
 // ══ PANEL RÔLES ══
 async function sendPanelRoles(guild) {
   try {
     const salon = guild.channels.cache.get(IDS.SALON_ROLES);
-    if (!salon) { console.log('Salon roles introuvable'); return; }
+    if (!salon) { console.log('❌ Salon roles introuvable'); return; }
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n🎭  CHOISIS TES RÔLES\n━━━━━━━━━━━━━━━━━━━━━━')
-      .setDescription('> Sélectionne tes rôles en cliquant sur les boutons ci-dessous.\n> Clique une seconde fois pour retirer un rôle.')
-      .addFields(
-        { name: '⚧️ Genre', value: '`👨 Homme` `👩 Femme`', inline: true },
-        { name: '🔞 Âge', value: '`🧒 Mineur` `🔞 Majeur`', inline: true },
-      )
+      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
+      .setTitle('🎭  Choisis tes rôles')
+      .setDescription([
+        '> Sélectionne tes rôles en cliquant sur les boutons.',
+        '> Reclique pour retirer un rôle.',
+        '',
+        '**Genre**',
+        '`👨` Homme  •  `👩` Femme',
+        '',
+        '**Âge**',
+        '`🧒` Mineur  •  `🔞` Majeur',
+      ].join('\n'))
       .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506024573177692350/dd1d77397d99e16c07a910c8d9799356.gif?ex=6a0cc22e&is=6a0b70ae&hm=7bdbeb1517299458900d400fb33cb778af3c5d4c00ccf76a00852d8f449196a9&')
-      .setFooter({ text: '• Un seul rôle par catégorie recommandé.' });
+      .setFooter({ text: 'Naytawa • Un seul rôle par catégorie recommandé.' });
+
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('role_homme').setLabel('👨 Homme').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('role_femme').setLabel('👩 Femme').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('role_mineur').setLabel('🧒 Mineur').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_majeur').setLabel('🔞 Majeur').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('role_homme').setEmoji('👨').setLabel('Homme').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('role_femme').setEmoji('👩').setLabel('Femme').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('role_mineur').setEmoji('🧒').setLabel('Mineur').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('role_majeur').setEmoji('🔞').setLabel('Majeur').setStyle(ButtonStyle.Success),
     );
+
+    // Auto-ping qui s'efface
+    const ping = await salon.send({ content: `<@&${IDS.ROLE_MEMBRE}>` });
+    setTimeout(() => ping.delete().catch(() => {}), 5000);
     await salon.send({ embeds: [embed], components: [row] });
-    console.log('Panel roles envoyé !');
-  } catch (e) { console.error('Erreur panel roles:', e.message); }
+    console.log('✅ Panel roles envoyé');
+  } catch (e) { console.error('Panel roles:', e.message); }
 }
 
 // ══ PANEL JEUX ══
 async function sendPanelJeux(guild) {
   try {
     const salon = guild.channels.cache.get(IDS.SALON_ACCES_JEUX);
-    if (!salon) { console.log('Salon jeux introuvable'); return; }
+    if (!salon) { console.log('❌ Salon jeux introuvable'); return; }
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n🎮  ACCÈS RAPIDES\n━━━━━━━━━━━━━━━━━━━━━━')
-      .setDescription('> Clique sur un bouton pour activer ou désactiver l\'accès à un environnement de jeu.')
-      .addFields(
-        { name: '🪙 Coins', value: 'Accès au salon Coins', inline: true },
-        { name: '🎴 Mudae', value: 'Accès au salon Mudae', inline: true },
-        { name: '⚔️ OPW', value: 'Accès au salon OPW', inline: true },
-      )
+      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
+      .setTitle('🎮  Accès rapides')
+      .setDescription([
+        '> Active ou désactive l\'accès à un environnement de jeu.',
+        '> Clique une seconde fois pour retirer l\'accès.',
+        '',
+        '`🪙` **Coins** — Accès au salon Coins',
+        '`🎴` **Mudae** — Accès au salon Mudae',
+        '`⚔️` **OPW** — Accès au salon One Piece World',
+      ].join('\n'))
       .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506024573177692350/dd1d77397d99e16c07a910c8d9799356.gif?ex=6a0cc22e&is=6a0b70ae&hm=7bdbeb1517299458900d400fb33cb778af3c5d4c00ccf76a00852d8f449196a9&')
-      .setFooter({ text: '• Clique une seconde fois pour retirer l\'accès.' });
+      .setFooter({ text: 'Naytawa • Accès instantané.' });
+
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('jeux_coins').setLabel('🪙 Accès Coins').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('jeux_mudae').setLabel('🎴 Accès Mudae').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('jeux_opw').setLabel('⚔️ Accès OPW').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('jeux_coins').setEmoji('🪙').setLabel('Coins').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('jeux_mudae').setEmoji('🎴').setLabel('Mudae').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('jeux_opw').setEmoji('⚔️').setLabel('OPW').setStyle(ButtonStyle.Success),
     );
     await salon.send({ embeds: [embed], components: [row] });
-    console.log('Panel jeux envoyé !');
-  } catch (e) { console.error('Erreur panel jeux:', e.message); }
+    console.log('✅ Panel jeux envoyé');
+  } catch (e) { console.error('Panel jeux:', e.message); }
 }
 
 // ══ PANEL TICKETS ══
@@ -334,73 +384,78 @@ async function sendPanelTickets(guild) {
   try {
     const salonRegles = guild.channels.cache.get(IDS.SALON_TICKET_REGLES);
     if (salonRegles) {
-      const embed = new EmbedBuilder()
+      await salonRegles.send({ embeds: [new EmbedBuilder()
         .setColor(COLOR)
-        .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n📋  RÈGLES DES TICKETS\n━━━━━━━━━━━━━━━━━━━━━━')
+        .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
+        .setTitle('📋  Règles des tickets')
         .setDescription([
-          '> Avant d\'ouvrir un ticket, merci de respecter ces règles.',
+          '> Merci de respecter ces règles avant d\'ouvrir un ticket.',
           '',
-          '**` ✗ `**  Pas de faux tickets ou trolls',
-          '**` ✗ `**  Pas d\'insultes envers le staff',
-          '**` ✗ `**  Un seul ticket par problème',
-          '**` ✓ `**  Sois poli et respectueux',
-          '**` ✓ `**  Explique clairement ta situation',
-          '**` ✓ `**  Patiente, le staff répond dès que possible',
+          '`✗`  Pas de faux tickets ou trolls',
+          '`✗`  Pas d\'insultes envers le staff',
+          '`✗`  Un seul ticket par problème',
+          '`✓`  Sois poli et respectueux',
+          '`✓`  Explique clairement ta situation',
           '',
-          '*Tout abus entraînera une sanction immédiate.*',
+          '*Tout abus entraîne une sanction immédiate.*',
         ].join('\n'))
-        .setFooter({ text: '• Le staff est là pour t\'aider.' });
-      await salonRegles.send({ embeds: [embed] });
+        .setFooter({ text: 'Naytawa • Le staff est là pour t\'aider.' })] });
     }
+
     const salonPanel = guild.channels.cache.get(IDS.SALON_TICKET_PANEL);
     if (salonPanel) {
       const embed = new EmbedBuilder()
         .setColor(COLOR)
-        .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n🎫  OUVRIR UN TICKET\n━━━━━━━━━━━━━━━━━━━━━━')
-        .setDescription('> Sélectionne la catégorie correspondant à ta demande.\n> Un membre du staff prendra en charge ton ticket rapidement.')
-        .addFields(
-          { name: '❓ Question', value: 'Une question générale', inline: true },
-          { name: '⚠️ Abus / Problème', value: 'Signaler un abus', inline: true },
-          { name: '🛡️ Devenir Modérateur', value: 'Candidature staff', inline: true },
-        )
+        .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
+        .setTitle('🎫  Ouvrir un ticket')
+        .setDescription([
+          '> Choisis la catégorie correspondant à ta demande.',
+          '> Un membre du staff te répondra rapidement.',
+          '',
+          '`❓` **Question** — Une question générale',
+          '`⚠️` **Abus / Problème** — Signaler un abus de perm',
+          '`🛡️` **Staff** — Candidature modérateur',
+        ].join('\n'))
         .setImage('https://cdn.discordapp.com/attachments/1505586853120839925/1506023355558531082/4852aeedde73d6eac84f075c6b9c4ce6.gif?ex=6a0cc10c&is=6a0b6f8c&hm=946656d43cb7fe32da993915734a39f5fbd9e9c45c42c4abcfb590d4847f7205&')
-        .setFooter({ text: '• Respectez les règles des tickets.' });
+        .setFooter({ text: 'Naytawa • Respecte les règles des tickets.' });
+
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ticket_question').setLabel('❓ Question').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('ticket_abus').setLabel('⚠️ Abus / Problème').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('ticket_modo').setLabel('🛡️ Devenir Modérateur').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('ticket_question').setEmoji('❓').setLabel('Question').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('ticket_abus').setEmoji('⚠️').setLabel('Abus / Problème').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('ticket_modo').setEmoji('🛡️').setLabel('Devenir Modérateur').setStyle(ButtonStyle.Success),
       );
       await salonPanel.send({ embeds: [embed], components: [row] });
     }
-    console.log('Panel tickets envoyé !');
-  } catch (e) { console.error('Erreur panel tickets:', e.message); }
+    console.log('✅ Panel tickets envoyé');
+  } catch (e) { console.error('Panel tickets:', e.message); }
 }
 
 // ══ PANEL PLAINTE ══
 async function sendPanelPlainte(guild) {
   try {
     const salon = guild.channels.cache.get(IDS.SALON_PLAINTE);
-    if (!salon) { console.log('Salon plainte introuvable'); return; }
+    if (!salon) { console.log('❌ Salon plainte introuvable'); return; }
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n⚖️  PLAINTE ANONYME\n━━━━━━━━━━━━━━━━━━━━━━')
+      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
+      .setTitle('⚖️  Plainte anonyme')
       .setDescription([
-        '> Tu souhaites signaler un comportement inapproprié de la part d\'un membre du staff ?',
+        '> Tu souhaites signaler un comportement inapproprié du staff ?',
         '',
-        '**Comment ça fonctionne ?**',
-        '**` 1 `**  Clique sur le bouton ci-dessous',
-        '**` 2 `**  Écris ta plainte dans le formulaire',
-        '**` 3 `**  Ta plainte est transmise **anonymement** aux hauts grades',
+        '`1️⃣`  Clique sur le bouton ci-dessous',
+        '`2️⃣`  Remplis le formulaire',
+        '`3️⃣`  Ta plainte est transmise **anonymement** aux hauts grades',
         '',
         '*Ton identité ne sera jamais révélée.*',
       ].join('\n'))
-      .setFooter({ text: '• Confidentialité garantie.' });
+      .setFooter({ text: 'Naytawa • Confidentialité garantie.' });
+
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('plainte_ouvrir').setLabel('📝 Déposer une plainte').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('plainte_ouvrir').setEmoji('📝').setLabel('Déposer une plainte').setStyle(ButtonStyle.Danger),
     );
     await salon.send({ embeds: [embed], components: [row] });
-    console.log('Panel plainte envoyé !');
-  } catch (e) { console.error('Erreur panel plainte:', e.message); }
+    console.log('✅ Panel plainte envoyé');
+  } catch (e) { console.error('Panel plainte:', e.message); }
 }
 
 // ══ TOP MESSAGES ══
@@ -428,17 +483,18 @@ async function sendTopMessages(guild) {
     const medals = ['🥇', '🥈', '🥉'];
     const lines = sorted.map((e, i) => {
       const member = guild.members.cache.get(e[0]);
-      return `${medals[i] || `**\`${String(i + 1).padStart(2, '0')}\`**`}  ${member?.displayName || 'Inconnu'}  —  **${e[1].toLocaleString()}** messages`;
+      return `${medals[i] || `\`${String(i + 1).padStart(2, '0')}\``}  **${member?.displayName || 'Inconnu'}**  —  ${e[1].toLocaleString()} messages`;
     });
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n💬  TOP 10 MESSAGES\n━━━━━━━━━━━━━━━━━━━━━━')
-      .setDescription(lines.length ? lines.join('\n') : '> Aucune donnée pour le moment.')
+      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
+      .setTitle('💬  Top 10 Messages')
+      .setDescription(lines.length ? lines.join('\n') : '> Aucune donnée.')
       .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506026866476322966/4c37ad1ea38200cbda5c29fa12a86cfd.gif?ex=6a0cc451&is=6a0b72d1&hm=687256104ad7485ff027cee108268299c2e17a7ff406277a9c96072d2371e257&')
       .setTimestamp()
-      .setFooter({ text: '• Mis à jour automatiquement' });
-    const msgs = await salon.messages.fetch({ limit: 5 });
-    const ex = msgs.find(m => m.author.id === client.user.id);
+      .setFooter({ text: 'Naytawa • Mis à jour automatiquement' });
+    const msgs = await salon.messages.fetch({ limit: 10 });
+    const ex = msgs.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.includes('Messages'));
     if (ex) await ex.edit({ embeds: [embed] }); else await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Top messages:', e.message); }
 }
@@ -475,17 +531,18 @@ async function sendTopVoc(guild) {
       const member = guild.members.cache.get(e[0]);
       const h = Math.floor(e[1] / 3600000);
       const m = Math.floor((e[1] % 3600000) / 60000);
-      return `${medals[i] || `**\`${String(i + 1).padStart(2, '0')}\`**`}  ${member?.displayName || 'Inconnu'}  —  **${h}h ${m}m**`;
+      return `${medals[i] || `\`${String(i + 1).padStart(2, '0')}\``}  **${member?.displayName || 'Inconnu'}**  —  ${h}h ${m}m`;
     });
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n🎧  TOP 10 VOCAL\n━━━━━━━━━━━━━━━━━━━━━━')
-      .setDescription(lines.length ? lines.join('\n') : '> Aucune donnée pour le moment.')
+      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
+      .setTitle('🎧  Top 10 Vocal')
+      .setDescription(lines.length ? lines.join('\n') : '> Aucune donnée.')
       .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506026866476322966/4c37ad1ea38200cbda5c29fa12a86cfd.gif?ex=6a0cc451&is=6a0b72d1&hm=687256104ad7485ff027cee108268299c2e17a7ff406277a9c96072d2371e257&')
       .setTimestamp()
-      .setFooter({ text: '• Mis à jour automatiquement' });
-    const msgs = await salon.messages.fetch({ limit: 5 });
-    const ex = msgs.find(m => m.author.id === client.user.id);
+      .setFooter({ text: 'Naytawa • Mis à jour automatiquement' });
+    const msgs = await salon.messages.fetch({ limit: 10 });
+    const ex = msgs.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.includes('Vocal'));
     if (ex) await ex.edit({ embeds: [embed] }); else await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Top vocal:', e.message); }
 }
@@ -506,7 +563,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setDescription(`🔄 **${member.displayName}** : <#${oldState.channelId}> → <#${newState.channelId}>`).setTimestamp()] });
     }
     if (!oldState.serverMute && newState.serverMute && logCh) {
-      logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setDescription(`🔇 **${member.displayName}** a été mute en vocal`).setTimestamp()] });
+      logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setDescription(`🔇 **${member.displayName}** a été mute vocal`).setTimestamp()] });
     }
   } catch (e) { console.error('VoiceState:', e.message); }
 });
@@ -527,8 +584,8 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     if (!logCh) return;
     const added = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
     const removed = oldMember.roles.cache.filter(r => !newMember.roles.cache.has(r.id));
-    if (added.size > 0) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setDescription(`➕ **${newMember.displayName}** a reçu le rôle **${added.first()?.name}**`).setTimestamp()] });
-    if (removed.size > 0) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setDescription(`➖ **${newMember.displayName}** a perdu le rôle **${removed.first()?.name}**`).setTimestamp()] });
+    if (added.size > 0) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setDescription(`➕ **${newMember.displayName}** a reçu **${added.first()?.name}**`).setTimestamp()] });
+    if (removed.size > 0) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setDescription(`➖ **${newMember.displayName}** a perdu **${removed.first()?.name}**`).setTimestamp()] });
   } catch (e) { console.error('MemberUpdate:', e.message); }
 });
 
@@ -539,7 +596,6 @@ client.on('interactionCreate', async interaction => {
     const member = interaction.member;
     const guild = interaction.guild;
 
-    // Rôles genre/âge
     const roleMap = { role_homme: IDS.ROLE_HOMME, role_femme: IDS.ROLE_FEMME, role_mineur: IDS.ROLE_MINEUR, role_majeur: IDS.ROLE_MAJEUR };
     if (roleMap[interaction.customId]) {
       const roleId = roleMap[interaction.customId];
@@ -554,7 +610,6 @@ client.on('interactionCreate', async interaction => {
       }
     }
 
-    // Accès jeux
     const jeuxMap = { jeux_coins: IDS.ROLE_COINS, jeux_mudae: IDS.ROLE_MUDAE, jeux_opw: IDS.ROLE_OPW };
     if (jeuxMap[interaction.customId]) {
       const roleId = jeuxMap[interaction.customId];
@@ -569,7 +624,6 @@ client.on('interactionCreate', async interaction => {
       }
     }
 
-    // Tickets
     const ticketTypes = { ticket_question: '❓ Question', ticket_abus: '⚠️ Abus / Problème', ticket_modo: '🛡️ Devenir Modérateur' };
     if (ticketTypes[interaction.customId]) {
       const type = ticketTypes[interaction.customId];
@@ -588,30 +642,29 @@ client.on('interactionCreate', async interaction => {
       });
       const embed = new EmbedBuilder()
         .setColor(COLOR)
-        .setTitle(`━━━━━━━━━━━━━━━━━━━━━━\n🎫  TICKET — ${type}\n━━━━━━━━━━━━━━━━━━━━━━`)
-        .setDescription(`> Bonjour ${member} !\n> Un membre du staff va prendre en charge ton ticket rapidement.\n\n**Type :** ${type}\n**Créé le :** <t:${Math.floor(Date.now() / 1000)}:F>`)
-        .setFooter({ text: '• Clique sur Fermer quand ton problème est résolu.' })
+        .setAuthor({ name: 'Naytawa — Support', iconURL: guild.iconURL({ dynamic: true }) })
+        .setTitle(`🎫  Ticket — ${type}`)
+        .setDescription(`> Bonjour ${member} !\n> Un membre du staff va prendre en charge ta demande.\n\n**Type :** ${type}\n**Créé le :** <t:${Math.floor(Date.now() / 1000)}:F>`)
+        .setFooter({ text: 'Naytawa • Clique sur Fermer quand c\'est résolu.' })
         .setTimestamp();
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ticket_fermer').setLabel('🔒 Fermer le ticket').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('ticket_fermer').setEmoji('🔒').setLabel('Fermer le ticket').setStyle(ButtonStyle.Danger),
       );
       await ticketChannel.send({ content: `<@&${IDS.ROLE_TICKET}>`, embeds: [embed], components: [row] });
-      await interaction.reply({ content: `✅ Ton ticket a été créé : ${ticketChannel}`, ephemeral: true });
+      await interaction.reply({ content: `✅ Ticket créé : ${ticketChannel}`, ephemeral: true });
       const logCh = guild.channels.cache.get(IDS.LOG_TICKET);
-      if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('🎫 Nouveau ticket').setDescription(`**Créé par :** ${member.user.tag}\n**Type :** ${type}\n**Salon :** ${ticketChannel}`).setTimestamp()] });
+      if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('🎫 Nouveau ticket').setDescription(`**Par :** ${member.user.tag}\n**Type :** ${type}`).setTimestamp()] });
       return;
     }
 
-    // Fermer ticket
     if (interaction.customId === 'ticket_fermer') {
       await interaction.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('🔒 Ticket fermé').setDescription(`> Fermé par ${member}\n> Suppression dans 5 secondes...`).setTimestamp()] });
       const logCh = guild.channels.cache.get(IDS.LOG_TICKET);
-      if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('🔒 Ticket fermé').setDescription(`**Fermé par :** ${member.user.tag}\n**Salon :** ${interaction.channel.name}`).setTimestamp()] });
+      if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('🔒 Ticket fermé').setDescription(`**Fermé par :** ${member.user.tag}`).setTimestamp()] });
       setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
       return;
     }
 
-    // Plainte - ouvrir modal
     if (interaction.customId === 'plainte_ouvrir') {
       const modal = new ModalBuilder().setCustomId('plainte_modal').setTitle('📝 Plainte anonyme');
       const input = new TextInputBuilder()
@@ -621,31 +674,31 @@ client.on('interactionCreate', async interaction => {
         .setRequired(true)
         .setMinLength(20)
         .setMaxLength(1000)
-        .setPlaceholder('Explique clairement la situation, qui est concerné et quand c\'est arrivé...');
+        .setPlaceholder('Explique la situation, qui est concerné, quand...');
       modal.addComponents(new ActionRowBuilder().addComponents(input));
       await interaction.showModal(modal);
       return;
     }
 
-    // Plainte - soumission
     if (interaction.isModalSubmit() && interaction.customId === 'plainte_modal') {
       const texte = interaction.fields.getTextInputValue('plainte_texte');
       const salonStaff = guild.channels.cache.get(IDS.SALON_PLAINTE_STAFF);
       if (salonStaff) {
         const embed = new EmbedBuilder()
           .setColor('#ed4245')
-          .setTitle('━━━━━━━━━━━━━━━━━━━━━━\n⚖️  NOUVELLE PLAINTE ANONYME\n━━━━━━━━━━━━━━━━━━━━━━')
-          .setDescription(`> **Contenu de la plainte :**\n\n${texte}`)
+          .setAuthor({ name: 'Naytawa — Plainte anonyme' })
+          .setTitle('⚖️  Nouvelle plainte reçue')
+          .setDescription(`> **Contenu :**\n\n${texte}`)
           .setTimestamp()
-          .setFooter({ text: '• Identité de l\'auteur confidentielle.' });
+          .setFooter({ text: 'Naytawa • Identité confidentielle.' });
         const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('plainte_voc').setLabel('📞 Convoquer en vocal').setStyle(ButtonStyle.Primary),
-          new ButtonBuilder().setCustomId('plainte_derank').setLabel('⬇️ Dérank').setStyle(ButtonStyle.Danger),
-          new ButtonBuilder().setCustomId('plainte_blacklist').setLabel('🚫 Blacklist staff').setStyle(ButtonStyle.Danger),
+          new ButtonBuilder().setCustomId('plainte_voc').setEmoji('📞').setLabel('Convoquer en vocal').setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId('plainte_derank').setEmoji('⬇️').setLabel('Dérank').setStyle(ButtonStyle.Danger),
+          new ButtonBuilder().setCustomId('plainte_blacklist').setEmoji('🚫').setLabel('Blacklist staff').setStyle(ButtonStyle.Danger),
         );
         await salonStaff.send({ embeds: [embed], components: [row] });
       }
-      await interaction.reply({ content: '✅ Ta plainte a été transmise anonymement aux hauts grades !', ephemeral: true });
+      await interaction.reply({ content: '✅ Plainte transmise anonymement aux hauts grades !', ephemeral: true });
       return;
     }
 
