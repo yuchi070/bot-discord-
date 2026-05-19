@@ -464,10 +464,11 @@ async function sendPanelPartenariat(guild) {
         '',
         '**Pour faire une demande :**',
         `Ouvre un ticket dans <#${IDS.SALON_TICKET_PANEL}>`,
+        .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506232948930908170/1a13c8300696a51f0f7e45d726cce0b3_1.gif?ex=6a0d843f&is=6a0c32bf&hm=1997c636b1907355274fd7dff57e14db10af02cedd35916a902bde86df43a557&')
+
         '',
         '*Nous etudions chaque demande avec attention.*',
       ].join('\n'))
-      .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506232948930908170/1a13c8300696a51f0f7e45d726cce0b3_1.gif?ex=6a0d843f&is=6a0c32bf&hm=1997c636b1907355274fd7dff57e14db10af02cedd35916a902bde86df43a557&')
       .setFooter({ text: 'Naytawa • Partenariat' });
     await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Panel partenariat:', e.message); }
