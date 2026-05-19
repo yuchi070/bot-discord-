@@ -414,6 +414,7 @@ async function sendPanelTickets(guild) {
           '*Tout abus entraine une sanction.*',
         ].join('\n'))
         .setFooter({ text: 'Naytawa' })] });
+       .setImage('https://media.discordapp.net/attachments/1505541381198975036/1506232278517420104/d99d4ab19c4d867a9a9a8b91ef775db6.gif?ex=6a0d839f&is=6a0c321f&hm=0f36d6b96fe74aac88965047d78578cfe090901a48f6d908f1831a95149492a3&=&width=398&height=225')
     }
     const salonPanel = guild.channels.cache.get(IDS.SALON_TICKET_PANEL);
     if (salonPanel) {
