@@ -442,7 +442,7 @@ async function sendPanelTickets(guild) {
           'Sois poli et respectueux',
           'Explique clairement ta situation',
           '',
-          `Pour creer un ticket : <#${IDS.SALON_TICKET_PANEL}>`,
+          `Pour créer un ticket : <#${IDS.SALON_TICKET_PANEL}>`,
           '',
           '*Tout abus entraine une sanction.*',
         ].join('\n'))
