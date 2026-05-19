@@ -34,7 +34,7 @@ const IDS = {
   SALON_ACCES_JEUX:      '1505688303566065744',
   SALON_TICKET_REGLES:   '1505541456234807316',
   SALON_TICKET_PANEL:    '1505541456419618856',
-  SALON_AUTO_REACT:      '1505541372436943101',
+  SALON_AUTO_REACT:      '1506255806184685637',
   SALON_PARTENARIAT:     '1506232546252423291',
   STAT_EN_LIGNE:         '1505647390944792616',
   STAT_MEMBRES:          '1505647427749675028',
@@ -391,34 +391,6 @@ async function sendPanelRoles(guild) {
   } catch (e) { console.error('Panel roles:', e.message); }
 }
 
-// ══ PANEL JEUX ══
-async function sendPanelJeux(guild) {
-  try {
-    const salon = guild.channels.cache.get(IDS.SALON_ACCES_JEUX);
-    if (!salon) return console.log('Salon jeux introuvable : ' + IDS.SALON_ACCES_JEUX);
-    const embed = new EmbedBuilder()
-      .setColor(COLOR)
-      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
-      .setTitle('Acces rapides')
-      .setDescription([
-        '> Active ou desactive l\'acces a un jeu.',
-        '> Reclique pour retirer l\'acces.',
-        '',
-        '**Coins** — Acces au salon Coins',
-        '**Mudae** — Acces au salon Mudae',
-        '**OPW** — Acces au salon One Piece World',
-      ].join('\n'))
-      .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506024573177692350/dd1d77397d99e16c07a910c8d9799356.gif?ex=6a0cc22e&is=6a0b70ae&hm=7bdbeb1517299458900d400fb33cb778af3c5d4c00ccf76a00852d8f449196a9&')
-      .setFooter({ text: 'Naytawa • Acces instantane.' });
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('jeux_coins').setLabel('Coins').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('jeux_mudae').setLabel('Mudae').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('jeux_opw').setLabel('OPW').setStyle(ButtonStyle.Success),
-    );
-    await salon.send({ embeds: [embed], components: [row] });
-  } catch (e) { console.error('Panel jeux:', e.message); }
-}
-
 // ══ PANEL TICKETS ══
 async function sendPanelTickets(guild) {
   try {
@@ -531,7 +503,7 @@ async function sendTopMessages(guild) {
       .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Top 10 Messages')
       .setDescription(lines.length ? lines.join('\n') : 'Aucune donnee.')
-      .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506026866476322966/4c37ad1ea38200cbda5c29fa12a86cfd.gif?ex=6a0cc451&is=6a0b72d1&hm=687256104ad7485ff027cee108268299c2e17a7ff406277a9c96072d2371e257&')
+      .setImage('https://media.discordapp.net/attachments/1505541381198975036/1506232278517420104/d99d4ab19c4d867a9a9a8b91ef775db6.gif?ex=6a0d839f&is=6a0c321f&hm=0f36d6b96fe74aac88965047d78578cfe090901a48f6d908f1831a95149492a3&=&width=398&height=225')
       .setTimestamp()
       .setFooter({ text: 'Naytawa • Mis a jour automatiquement' });
 
@@ -584,7 +556,7 @@ async function sendTopVoc(guild) {
       .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Top 10 Vocal')
       .setDescription(lines.length ? lines.join('\n') : 'Aucune donnee.')
-      .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506026866476322966/4c37ad1ea38200cbda5c29fa12a86cfd.gif?ex=6a0cc451&is=6a0b72d1&hm=687256104ad7485ff027cee108268299c2e17a7ff406277a9c96072d2371e257&')
+      .setImage('https://media.discordapp.net/attachments/1505541381198975036/1506232278517420104/d99d4ab19c4d867a9a9a8b91ef775db6.gif?ex=6a0d839f&is=6a0c321f&hm=0f36d6b96fe74aac88965047d78578cfe090901a48f6d908f1831a95149492a3&=&width=398&height=225')
       .setTimestamp()
       .setFooter({ text: 'Naytawa • Mis a jour automatiquement' });
 
