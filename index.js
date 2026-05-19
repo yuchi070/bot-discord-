@@ -34,7 +34,7 @@ const IDS = {
   SALON_ACCES_JEUX:      '1505688303566065744',
   SALON_TICKET_REGLES:   '1505541456234807316',
   SALON_TICKET_PANEL:    '1505541456419618856',
-  SALON_AUTO_REACT:      '1506255806184685637',
+  SALON_AUTO_REACT:      '1505541372436943101',
   SALON_PARTENARIAT:     '1506232546252423291',
   STAT_EN_LIGNE:         '1505647390944792616',
   STAT_MEMBRES:          '1505647427749675028',
@@ -55,13 +55,13 @@ const IDS = {
   LOG_MOD:               '1505541549335904266',
 };
 
+const GIF_TOP = 'https://media.discordapp.net/attachments/1505541381198975036/1506232278517420104/d99d4ab19c4d867a9a9a8b91ef775db6.gif?ex=6a0d839f&is=6a0c321f&hm=0f36d6b96fe74aac88965047d78578cfe090901a48f6d908f1831a95149492a3&width=398&height=225&';
+const GIF_TICKET_REGLES = 'https://cdn.discordapp.com/attachments/1505541381198975036/1506291397123112980/c84fb740471d58ba9597ace28969d490.gif?ex=6a0dbaae&is=6a0c692e&hm=a64bffaab3e72cf9a6f0864ed5e7478f810410eae34f542976fec30352fb0980&';
+
 const messageCount = new Map();
 const vocTime = new Map();
 const vocJoin = new Map();
 const warns = new Map();
-// stocke l'id du panel top pour le réactualiser
-let topMsgPanelId = null;
-let topVocPanelId = null;
 
 // ══ READY ══
 client.once('ready', async () => {
@@ -87,7 +87,6 @@ async function updateStats() {
     if (chM) await chM.setName(`⚔️・membres : ${total}`).catch(() => {});
     if (chO) await chO.setName(`👑・en ligne : ${online}`).catch(() => {});
     if (chV) await chV.setName(`🎧・voc : ${voc}`).catch(() => {});
-
     const salon = guild.channels.cache.get(IDS.SALON_STATS);
     if (!salon) return;
     const embed = new EmbedBuilder()
@@ -95,9 +94,9 @@ async function updateStats() {
       .setTitle('Statistiques du serveur')
       .setDescription(`**Membres :** ${total}\n**En ligne :** ${online}\n**En vocal :** ${voc}\n**Boosts :** ${boosts}`)
       .setThumbnail(guild.iconURL({ dynamic: true }))
+      .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506232278517420104/d99d4ab19c4d867a9a9a8b91ef775db6.gif?ex=6a0d839f&is=6a0c321f&hm=0f36d6b96fe74aac88965047d78578cfe090901a48f6d908f1831a95149492a3&')
       .setTimestamp()
       .setFooter({ text: 'Naytawa • Mise a jour automatique' });
-
     const msgs = await salon.messages.fetch({ limit: 20 });
     const ex = msgs.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.includes('Statistiques'));
     if (ex) await ex.edit({ embeds: [embed] });
@@ -116,7 +115,7 @@ client.on('guildMemberAdd', async member => {
   } catch (e) { console.error('Bienvenue:', e.message); }
 });
 
-// ══ BOOST MESSAGE ══
+// ══ BOOST MESSAGE + LOGS ROLES ══
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   try {
     if (!oldMember.premiumSince && newMember.premiumSince) {
@@ -147,6 +146,12 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 // ══ MESSAGES ══
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
+
+  // Réponse au ping du bot
+  if (message.mentions.has(client.user) && !message.content.startsWith(PREFIX)) {
+    await message.reply(`ftg laisse moi tranquille.....ahhh mon prefixe c'est \`${PREFIX}\` !`);
+    return;
+  }
 
   // Auto react coeur
   if (message.channel.id === IDS.SALON_AUTO_REACT) {
@@ -260,7 +265,7 @@ client.on('messageCreate', async message => {
     const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
     if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a')
       .setTitle('Mute')
-      .setDescription(`**Mute :** ${target.user.tag} (${target.id})\n**Par :** ${message.author.tag} (${message.author.id})\n**Duree :** ${duree} minutes\n**Fin du mute :** <t:${muteEnd}:F>\n**Raison :** ${reason}\n**Statut :** Actuellement mute`)
+      .setDescription(`**Mute :** ${target.user.tag} (${target.id})\n**Par :** ${message.author.tag} (${message.author.id})\n**Duree :** ${duree} minutes\n**Fin :** <t:${muteEnd}:F>\n**Raison :** ${reason}\n**Statut :** Actuellement mute`)
       .setTimestamp()] });
   }
 
@@ -350,7 +355,7 @@ async function sendPanelReglement(guild) {
         '**` 07 `** Aucun lien suspect ou malveillant.',
         '**` 08 `** Une seule identite par personne.',
         '',
-        'Conditions d\'utilisation Discord : https://discord.com/terms',
+        'Conditions d\'utilisation : https://discord.com/terms',
         'Regles de la communaute : https://discord.com/guidelines',
         '',
         '*En restant sur ce serveur, tu acceptes ces regles.*',
@@ -361,7 +366,7 @@ async function sendPanelReglement(guild) {
   } catch (e) { console.error('Panel reglement:', e.message); }
 }
 
-// ══ PANEL RÔLES NOTIFICATIONS ══
+// ══ PANEL NOTIFICATIONS ══
 async function sendPanelRoles(guild) {
   try {
     const salon = guild.channels.cache.get(IDS.SALON_ROLES);
@@ -372,7 +377,7 @@ async function sendPanelRoles(guild) {
       .setTitle('Notifications')
       .setDescription([
         '> Choisis les notifications que tu souhaites recevoir.',
-        '> Reclique pour desactiver une notification.',
+        '> Reclique pour desactiver.',
         '',
         '**Partenariat** — Annonces partenariat',
         '**Sondage** — Sondages du serveur',
@@ -391,12 +396,40 @@ async function sendPanelRoles(guild) {
   } catch (e) { console.error('Panel roles:', e.message); }
 }
 
+// ══ PANEL JEUX ══
+async function sendPanelJeux(guild) {
+  try {
+    const salon = guild.channels.cache.get(IDS.SALON_ACCES_JEUX);
+    if (!salon) return console.log('Salon jeux introuvable');
+    const embed = new EmbedBuilder()
+      .setColor(COLOR)
+      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
+      .setTitle('Acces rapides')
+      .setDescription([
+        '> Active ou desactive l\'acces a un jeu.',
+        '> Reclique pour retirer l\'acces.',
+        '',
+        '**Coins** — Acces au salon Coins',
+        '**Mudae** — Acces au salon Mudae',
+        '**OPW** — Acces au salon One Piece World',
+      ].join('\n'))
+      .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506024573177692350/dd1d77397d99e16c07a910c8d9799356.gif?ex=6a0cc22e&is=6a0b70ae&hm=7bdbeb1517299458900d400fb33cb778af3c5d4c00ccf76a00852d8f449196a9&')
+      .setFooter({ text: 'Naytawa • Acces instantane.' });
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('jeux_coins').setLabel('Coins').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('jeux_mudae').setLabel('Mudae').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('jeux_opw').setLabel('OPW').setStyle(ButtonStyle.Success),
+    );
+    await salon.send({ embeds: [embed], components: [row] });
+  } catch (e) { console.error('Panel jeux:', e.message); }
+}
+
 // ══ PANEL TICKETS ══
 async function sendPanelTickets(guild) {
   try {
     const salonRegles = guild.channels.cache.get(IDS.SALON_TICKET_REGLES);
     if (salonRegles) {
-      await salonRegles.send({ embeds: [new EmbedBuilder()
+      const embedRegles = new EmbedBuilder()
         .setColor(COLOR)
         .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
         .setTitle('Regles des tickets')
@@ -413,8 +446,11 @@ async function sendPanelTickets(guild) {
           '',
           '*Tout abus entraine une sanction.*',
         ].join('\n'))
-        .setFooter({ text: 'Naytawa' })] });
+        .setImage(GIF_TICKET_REGLES)
+        .setFooter({ text: 'Naytawa' });
+      await salonRegles.send({ embeds: [embedRegles] });
     }
+
     const salonPanel = guild.channels.cache.get(IDS.SALON_TICKET_PANEL);
     if (salonPanel) {
       const embed = new EmbedBuilder()
@@ -463,11 +499,10 @@ async function sendPanelPartenariat(guild) {
         '',
         '**Pour faire une demande :**',
         `Ouvre un ticket dans <#${IDS.SALON_TICKET_PANEL}>`,
-        .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506232948930908170/1a13c8300696a51f0f7e45d726cce0b3_1.gif?ex=6a0d843f&is=6a0c32bf&hm=1997c636b1907355274fd7dff57e14db10af02cedd35916a902bde86df43a557&')
-
         '',
         '*Nous etudions chaque demande avec attention.*',
       ].join('\n'))
+      .setImage('https://cdn.discordapp.com/attachments/1505541381198975036/1506232948930908170/1a13c8300696a51f0f7e45d726cce0b3_1.gif?ex=6a0d843f&is=6a0c32bf&hm=1997c636b1907355274fd7dff57e14db10af02cedd35916a902bde86df43a557&')
       .setFooter({ text: 'Naytawa • Partenariat' });
     await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Panel partenariat:', e.message); }
@@ -495,28 +530,19 @@ async function sendTopMessages(guild) {
     const salon = guild.channels.cache.get(IDS.SALON_TOP_MSG);
     if (!salon) return;
     const sorted = [...messageCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
-    const lines = sorted.map((e, i) => {
-      const member = guild.members.cache.get(e[0]);
-      return `Top ${i + 1} <@${e[0]}> — ${e[1].toLocaleString()} messages`;
-    });
+    const lines = sorted.map((e, i) => `Top ${i + 1} <@${e[0]}> — ${e[1].toLocaleString()} messages`);
     const embed = new EmbedBuilder()
       .setColor(COLOR)
       .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Top 10 Messages')
       .setDescription(lines.length ? lines.join('\n') : 'Aucune donnee.')
-      .setImage('https://media.discordapp.net/attachments/1505541381198975036/1506232278517420104/d99d4ab19c4d867a9a9a8b91ef775db6.gif?ex=6a0d839f&is=6a0c321f&hm=0f36d6b96fe74aac88965047d78578cfe090901a48f6d908f1831a95149492a3&=&width=398&height=225')
+      .setImage(GIF_TOP)
       .setTimestamp()
       .setFooter({ text: 'Naytawa • Mis a jour automatiquement' });
-
-    // Cherche le panel existant et le modifie sinon le crée une seule fois
     const msgs = await salon.messages.fetch({ limit: 20 });
     const ex = msgs.find(m => m.author.id === client.user.id && m.embeds[0]?.title === 'Top 10 Messages');
-    if (ex) {
-      await ex.edit({ embeds: [embed] });
-    } else {
-      const sent = await salon.send({ embeds: [embed] });
-      topMsgPanelId = sent.id;
-    }
+    if (ex) await ex.edit({ embeds: [embed] });
+    else await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Top messages:', e.message); }
 }
 
@@ -557,17 +583,13 @@ async function sendTopVoc(guild) {
       .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Top 10 Vocal')
       .setDescription(lines.length ? lines.join('\n') : 'Aucune donnee.')
-      .setImage('https://media.discordapp.net/attachments/1505541381198975036/1506232278517420104/d99d4ab19c4d867a9a9a8b91ef775db6.gif?ex=6a0d839f&is=6a0c321f&hm=0f36d6b96fe74aac88965047d78578cfe090901a48f6d908f1831a95149492a3&=&width=398&height=225')
+      .setImage(GIF_TOP)
       .setTimestamp()
       .setFooter({ text: 'Naytawa • Mis a jour automatiquement' });
-
     const msgs = await salon.messages.fetch({ limit: 20 });
     const ex = msgs.find(m => m.author.id === client.user.id && m.embeds[0]?.title === 'Top 10 Vocal');
-    if (ex) {
-      await ex.edit({ embeds: [embed] });
-    } else {
-      await salon.send({ embeds: [embed] });
-    }
+    if (ex) await ex.edit({ embeds: [embed] });
+    else await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Top vocal:', e.message); }
 }
 
@@ -577,12 +599,11 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     const logCh = newState.guild.channels.cache.get(IDS.LOG_VOC);
     const member = newState.member;
     if (!member) return;
-
     if (!oldState.channelId && newState.channelId) {
       vocJoin.set(member.id, Date.now());
       if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c')
-        .setTitle('Rejoins vocal')
-        .setDescription(`**Membre :** ${member.user.tag} (${member.id})\n**Salon rejoint :** <#${newState.channelId}>\n**Statut mute :** ${newState.selfMute || newState.serverMute ? 'Mute' : 'Non mute'}\n**Statut sourd :** ${newState.selfDeaf || newState.serverDeaf ? 'Sourd' : 'Non sourd'}`)
+        .setTitle('Rejoint vocal')
+        .setDescription(`**Membre :** ${member.user.tag} (${member.id})\n**Salon :** <#${newState.channelId}>\n**Mute :** ${newState.selfMute || newState.serverMute ? 'Oui' : 'Non'}\n**Sourd :** ${newState.selfDeaf || newState.serverDeaf ? 'Oui' : 'Non'}`)
         .setTimestamp()] });
     } else if (oldState.channelId && !newState.channelId) {
       const join = vocJoin.get(member.id);
@@ -591,10 +612,10 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         vocTime.set(member.id, (vocTime.get(member.id) || 0) + elapsed);
         vocJoin.delete(member.id);
         const h = Math.floor(elapsed / 3600000);
-        const m = Math.floor((elapsed % 3600000) / 60000);
+        const m2 = Math.floor((elapsed % 3600000) / 60000);
         if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245')
           .setTitle('Quitte vocal')
-          .setDescription(`**Membre :** ${member.user.tag} (${member.id})\n**Salon quitte :** <#${oldState.channelId}>\n**Temps passe :** ${h}h ${m}m`)
+          .setDescription(`**Membre :** ${member.user.tag} (${member.id})\n**Salon :** <#${oldState.channelId}>\n**Temps passe :** ${h}h ${m2}m`)
           .setTimestamp()] });
       }
     } else if (oldState.channelId !== newState.channelId) {
@@ -603,18 +624,11 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         .setDescription(`**Membre :** ${member.user.tag} (${member.id})\n**De :** <#${oldState.channelId}>\n**Vers :** <#${newState.channelId}>`)
         .setTimestamp()] });
     }
-
     if (!oldState.serverMute && newState.serverMute && logCh) {
-      logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245')
-        .setTitle('Mute vocal serveur')
-        .setDescription(`**Membre :** ${member.user.tag} (${member.id})\n**Salon :** <#${newState.channelId}>\n**Statut :** Mute par le serveur`)
-        .setTimestamp()] });
+      logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Mute vocal').setDescription(`**Membre :** ${member.user.tag} (${member.id})\n**Salon :** <#${newState.channelId}>\n**Statut :** Mute par le serveur`).setTimestamp()] });
     }
     if (oldState.serverMute && !newState.serverMute && logCh) {
-      logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c')
-        .setTitle('Demute vocal serveur')
-        .setDescription(`**Membre :** ${member.user.tag} (${member.id})\n**Salon :** <#${newState.channelId}>\n**Statut :** N'est plus mute`)
-        .setTimestamp()] });
+      logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Demute vocal').setDescription(`**Membre :** ${member.user.tag} (${member.id})\n**Statut :** N'est plus mute`).setTimestamp()] });
     }
   } catch (e) { console.error('VoiceState:', e.message); }
 });
@@ -626,7 +640,7 @@ client.on('messageDelete', async message => {
   if (logCh && message.content) {
     logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245')
       .setTitle('Message supprime')
-      .setDescription(`**Auteur :** ${message.author?.tag} (${message.author?.id})\n**Salon :** <#${message.channel.id}>\n**Date du message :** <t:${Math.floor(message.createdTimestamp/1000)}:F>\n**Contenu :**\n${message.content.slice(0, 1000)}`)
+      .setDescription(`**Auteur :** ${message.author?.tag} (${message.author?.id})\n**Salon :** <#${message.channel.id}>\n**Date :** <t:${Math.floor(message.createdTimestamp/1000)}:F>\n**Contenu :**\n${message.content.slice(0, 1000)}`)
       .setTimestamp()] });
   }
 });
@@ -660,11 +674,7 @@ client.on('interactionCreate', async interaction => {
       }
 
       // Jeux
-      const jeuxMap = {
-        jeux_coins: '1506032267506745435',
-        jeux_mudae: '1506032360917827727',
-        jeux_opw:   '1506032309080424531',
-      };
+      const jeuxMap = { jeux_coins: '1506032267506745435', jeux_mudae: '1506032360917827727', jeux_opw: '1506032309080424531' };
       if (jeuxMap[interaction.customId]) {
         const roleId = jeuxMap[interaction.customId];
         const role = guild.roles.cache.get(roleId);
@@ -690,7 +700,6 @@ client.on('interactionCreate', async interaction => {
         const safeName = member.user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
         const existing = guild.channels.cache.find(c => c.name === `ticket-${safeName}` && c.parentId === IDS.CAT_TICKETS);
         if (existing) return interaction.reply({ content: 'Tu as deja un ticket ouvert !', ephemeral: true });
-
         const ticketChannel = await guild.channels.create({
           name: `ticket-${safeName}`,
           type: ChannelType.GuildText,
@@ -701,29 +710,23 @@ client.on('interactionCreate', async interaction => {
             { id: IDS.ROLE_TICKET, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
           ],
         });
-
-        // Si partenariat : demander la raison
-        let partnerInfo = '';
+        let extra = '';
         if (interaction.customId === 'ticket_partner') {
-          partnerInfo = '\n\nMerci de donner :\n- Le nom de ton serveur\n- Le lien d\'invitation\n- Le nombre de membres\n- La raison du partenariat';
+          extra = '\n\nMerci de fournir :\n- Nom du serveur\n- Lien d\'invitation\n- Nombre de membres\n- Raison du partenariat';
         }
-
         const embed = new EmbedBuilder()
           .setColor(COLOR)
           .setAuthor({ name: 'Naytawa — Support', iconURL: guild.iconURL({ dynamic: true }) })
           .setTitle(`Ticket — ${type}`)
-          .setDescription(`Bonjour ${member} !\nUn membre du staff va prendre en charge ta demande.\n\n**Type :** ${type}\n**Cree le :** <t:${Math.floor(Date.now() / 1000)}:F>${partnerInfo}`)
+          .setDescription(`Bonjour ${member} !\nUn membre du staff va prendre en charge ta demande.\n\n**Type :** ${type}\n**Cree le :** <t:${Math.floor(Date.now() / 1000)}:F>${extra}`)
           .setFooter({ text: 'Naytawa' })
           .setTimestamp();
-
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId('ticket_fermer').setLabel('Fermer le ticket').setStyle(ButtonStyle.Danger),
           new ButtonBuilder().setCustomId('ticket_prendre').setLabel('Je le prends en charge').setStyle(ButtonStyle.Success),
         );
-
         await ticketChannel.send({ content: `<@&${IDS.ROLE_TICKET}>`, embeds: [embed], components: [row] });
         await interaction.reply({ content: `Ticket cree : ${ticketChannel}`, ephemeral: true });
-
         const logCh = guild.channels.cache.get(IDS.LOG_TICKET);
         if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c')
           .setTitle('Nouveau ticket')
@@ -732,7 +735,7 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
-      // Prendre en charge ticket
+      // Prendre en charge
       if (interaction.customId === 'ticket_prendre') {
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId('ticket_fermer').setLabel('Fermer le ticket').setStyle(ButtonStyle.Danger),
