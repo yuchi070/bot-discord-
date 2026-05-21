@@ -24,40 +24,41 @@ const client = new Client({
 
 const PREFIX = '-';
 const COLOR = '#e91e8c';
+const OWNER_ID = '1208368116942241813'; // Remplace par ton ID Discord
 
 const IDS = {
-  SALON_REGLEMENT:       '1505541099484217434',
-  SALON_ROLES:           '1505541083210322010',
-  SALON_STATS:           '1506019680626675762',
-  SALON_TOP_MSG:         '1505541388622762084',
-  SALON_TOP_VOC:         '1505541364182683849',
-  SALON_BIENVENUE:       '1506393454719144087',
-  SALON_PRISON:          '1505541512971419781',
-  SALON_TICKET_REGLES:   '1505541456234807316',
-  SALON_TICKET_PANEL:    '1505541456419618856',
-  SALON_AUTO_REACT:      '1505541372436943101',
-  SALON_PARTENARIAT:     '1506232546252423291',
-  STAT_EN_LIGNE:         '1505647390944792616',
-  STAT_MEMBRES:          '1505647427749675028',
-  STAT_VOC:              '1505647458565488690',
-  ROLE_MEMBRE:           '1506029843345703112',
-  ROLE_TOP3_MSG:         '1506030128973615114',
-  ROLE_TOP3_VOC:         '1505541364182683849',
-  ROLE_NOTIF_PARTNER:    '1506250258924179526',
-  ROLE_NOTIF_SONDAGE:    '1506257883074003075',
-  ROLE_NOTIF_ANIM:       '1506257971263311984',
-  ROLE_NOTIF_GIVEAWAY:   '1506250141777268797',
-  ROLE_TICKET:           '1505609735036993659',
-  ROLE_NAYTAWA:          '1506332594185437375',
-  ROLE_WL:               '1506580974144720967',
-  ROLE_WPERM:            '1506650704243069158',
-  ROLE_MIDPERM:          '1506650786354958396',
-  CAT_TICKETS:           '1505541035479138434',
-  LOG_MSG:               '1505541550203998330',
-  LOG_TICKET:            '1505541540557361353',
-  LOG_VOC:               '1505541558177497108',
-  LOG_ROLE:              '1505541512837070979',
-  LOG_MOD:               '1505541549335904266',
+  SALON_REGLEMENT:     '1505541099484217434',
+  SALON_ROLES:         '1505541083210322010',
+  SALON_STATS:         '1506019680626675762',
+  SALON_TOP_MSG:       '1505541388622762084',
+  SALON_TOP_VOC:       '1505541364182683849',
+  SALON_BIENVENUE:     '1506393454719144087',
+  SALON_PRISON:        '1505541512971419781',
+  SALON_TICKET_REGLES: '1505541456234807316',
+  SALON_TICKET_PANEL:  '1505541456419618856',
+  SALON_AUTO_REACT:    '1505541372436943101',
+  SALON_PARTENARIAT:   '1506232546252423291',
+  STAT_EN_LIGNE:       '1505647390944792616',
+  STAT_MEMBRES:        '1505647427749675028',
+  STAT_VOC:            '1505647458565488690',
+  ROLE_MEMBRE:         '1506029843345703112',
+  ROLE_TOP3_MSG:       '1506030128973615114',
+  ROLE_TOP3_VOC:       '1505541364182683849',
+  ROLE_NOTIF_PARTNER:  '1506250258924179526',
+  ROLE_NOTIF_SONDAGE:  '1506257883074003075',
+  ROLE_NOTIF_ANIM:     '1506257971263311984',
+  ROLE_NOTIF_GIVEAWAY: '1506250141777268797',
+  ROLE_TICKET:         '1505609735036993659',
+  ROLE_NAYTAWA:        '1506332594185437375',
+  ROLE_WL:             '1506580974144720967',
+  ROLE_WPERM:          '1506650704243069158',
+  ROLE_MIDPERM:        '1506650786354958396',
+  CAT_TICKETS:         '1505541035479138434',
+  LOG_MSG:             '1505541550203998330',
+  LOG_TICKET:          '1505541540557361353',
+  LOG_VOC:             '1505541558177497108',
+  LOG_ROLE:            '1505541512837070979',
+  LOG_MOD:             '1505541549335904266',
 };
 
 const GIF = {
@@ -74,30 +75,30 @@ const VIDEO_LOVE = 'https://media.discordapp.net/attachments/1462161276187836487
 
 // ══ DONNÉES ══
 const messageCount = new Map();
-const vocTime = new Map();
-const vocJoin = new Map();
-const warns = new Map();
+const vocTime     = new Map();
+const vocJoin     = new Map();
+const warns       = new Map();
 const rolesHistory = new Map();
 const inviteTracker = new Map();
-const inviteCount = new Map();
-const whitelistSet = new Set();
-const wpermSet = new Set();
-const midpermSet = new Set();
+const inviteCount   = new Map();
+const whitelistSet  = new Set();
+const wpermSet      = new Set();
+const midpermSet    = new Set();
 const antiSpamExclus = new Set();
-const spamTracker = new Map();
-let censureActif = true;
+const spamTracker   = new Map();
+let censureActif    = true;
 let botPingCooldown = null;
-let botPingStage = 0;
+let botPingStage    = 0;
 
 // ══ PERMISSIONS ══
-function isAdmin(member) {
-  return member.permissions.has(PermissionFlagsBits.Administrator) || member.permissions.has(PermissionFlagsBits.ManageGuild);
+function isAdmin(m) {
+  return m.permissions.has(PermissionFlagsBits.Administrator) || m.permissions.has(PermissionFlagsBits.ManageGuild);
 }
-function isWperm(member) {
-  return isAdmin(member) || member.roles.cache.has(IDS.ROLE_WPERM) || wpermSet.has(member.id);
+function isWperm(m) {
+  return isAdmin(m) || m.roles.cache.has(IDS.ROLE_WPERM) || wpermSet.has(m.id);
 }
-function isMidperm(member) {
-  return isWperm(member) || member.roles.cache.has(IDS.ROLE_MIDPERM) || midpermSet.has(member.id);
+function isMidperm(m) {
+  return isWperm(m) || m.roles.cache.has(IDS.ROLE_MIDPERM) || midpermSet.has(m.id);
 }
 
 // ══ MOTS INTERDITS ══
@@ -127,6 +128,17 @@ function contientMotInterdit(texte) {
   return null;
 }
 
+// ══ ANTI SPAM ══
+function checkSpam(message) {
+  if (antiSpamExclus.has(message.channel.id)) return false;
+  const now = Date.now();
+  const data = spamTracker.get(message.author.id) || { msgs: [] };
+  data.msgs = data.msgs.filter(t => now - t < 5000);
+  data.msgs.push(now);
+  spamTracker.set(message.author.id, data);
+  return data.msgs.length > 5;
+}
+
 // ══ READY ══
 client.once('ready', async () => {
   console.log(`Bot connecte : ${client.user.tag}`);
@@ -134,7 +146,6 @@ client.once('ready', async () => {
     const invites = await guild.invites.fetch().catch(() => null);
     if (invites) inviteTracker.set(guild.id, new Map(invites.map(i => [i.code, { uses: i.uses || 0, inviterId: i.inviter?.id }])));
   }
-  // Stats toutes les minutes — envoie un nouveau message a chaque fois
   updateStats();
   setInterval(updateStats, 60000);
   setInterval(() => updateTopVoc(), 300000);
@@ -146,16 +157,16 @@ client.on('inviteCreate', invite => {
   inviteTracker.set(invite.guild.id, map);
 });
 
-// ══ STATS — nouveau message chaque minute ══
+// ══ STATS ══
 async function updateStats() {
   try {
     const guild = client.guilds.cache.first();
     if (!guild) return;
     await guild.members.fetch();
-    const total = guild.memberCount;
-    const online = guild.members.cache.filter(m => m.presence?.status && m.presence.status !== 'offline').size;
-    const voc = guild.voiceStates.cache.filter(v => v.channelId).size;
-    const boosts = guild.premiumSubscriptionCount || 0;
+    const total   = guild.memberCount;
+    const online  = guild.members.cache.filter(m => m.presence?.status && m.presence.status !== 'offline').size;
+    const voc     = guild.voiceStates.cache.filter(v => v.channelId).size;
+    const boosts  = guild.premiumSubscriptionCount || 0;
     const chM = guild.channels.cache.get(IDS.STAT_MEMBRES);
     const chO = guild.channels.cache.get(IDS.STAT_EN_LIGNE);
     const chV = guild.channels.cache.get(IDS.STAT_VOC);
@@ -166,18 +177,11 @@ async function updateStats() {
     if (!salon) return;
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Statistiques du serveur')
-      .setImage(GIF.STATS)
-      .addFields(
-        { name: 'Membres', value: `${total}`, inline: true },
-        { name: 'En ligne', value: `${online}`, inline: true },
-        { name: 'En vocal', value: `${voc}`, inline: true },
-        { name: 'Boosts', value: `${boosts}`, inline: true },
-      )
+      .setDescription(`Membres : ${total}\nEn ligne : ${online}\nEn vocal : ${voc}\nBoosts : ${boosts}`)
+      .setThumbnail(guild.iconURL({ dynamic: true }))
       .setTimestamp()
       .setFooter({ text: 'Naytawa' });
-    // Envoie un nouveau message a chaque fois pour donner de l'activite
     await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Stats:', e.message); }
 }
@@ -218,7 +222,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     }
     const logCh = newMember.guild.channels.cache.get(IDS.LOG_ROLE);
     if (!logCh) return;
-    const added = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
+    const added   = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
     const removed = oldMember.roles.cache.filter(r => !newMember.roles.cache.has(r.id));
     if (added.size > 0) {
       const role = added.first();
@@ -238,17 +242,6 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     }
   } catch (e) { console.error('MemberUpdate:', e.message); }
 });
-
-// ══ ANTI SPAM ══
-function checkSpam(message) {
-  if (antiSpamExclus.has(message.channel.id)) return false;
-  const now = Date.now();
-  const data = spamTracker.get(message.author.id) || { msgs: [] };
-  data.msgs = data.msgs.filter(t => now - t < 5000);
-  data.msgs.push(now);
-  spamTracker.set(message.author.id, data);
-  return data.msgs.length > 5;
-}
 
 // ══ MESSAGES ══
 client.on('messageCreate', async message => {
@@ -315,8 +308,8 @@ client.on('messageCreate', async message => {
 
   if (!message.content.startsWith(PREFIX)) return;
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const cmd = args.shift().toLowerCase();
-
+  const cmd  = args.shift().toLowerCase();
+  
   // ════════════════════════════════
   //   COMMANDES LIBRES
   // ════════════════════════════════
@@ -361,8 +354,8 @@ client.on('messageCreate', async message => {
 
   if (cmd === 'invites') {
     const target = message.mentions.members.first() || message.member;
-    const count = inviteCount.get(target.id) || 0;
-    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle(`Invitations de ${target.displayName}`).setDescription(`${target.displayName} a invite **${count}** membre${count > 1 ? 's' : ''}.`).setTimestamp()] });
+    const cnt = inviteCount.get(target.id) || 0;
+    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle(`Invitations de ${target.displayName}`).setDescription(`${target.displayName} a invite **${cnt}** membre${cnt > 1 ? 's' : ''}.`).setTimestamp()] });
   }
 
   if (cmd === 'topinvites') {
@@ -370,6 +363,22 @@ client.on('messageCreate', async message => {
     if (!sorted.length) return message.reply('Aucune donnee.');
     const lines = sorted.map((e, i) => `Top ${i + 1} <@${e[0]}> - ${e[1]} invitation${e[1] > 1 ? 's' : ''}`);
     message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Top 10 Invitations').setDescription(lines.join('\n')).setTimestamp().setFooter({ text: 'Naytawa' })] });
+  }
+
+  if (cmd === 'help') {
+    const embed = new EmbedBuilder()
+      .setColor(COLOR)
+      .setAuthor({ name: 'Naytawa Bot - Commandes', iconURL: client.user.displayAvatarURL() })
+      .addFields(
+        { name: 'Tout le monde', value: '-naytawa | -avatar | -profil | -love | -invites | -topinvites | -ping' },
+        { name: 'Midperm', value: '-warn | -unwarn | -warns | -mute | -unmute' },
+        { name: 'Wperm', value: '-kick | -wl | -unwl | -wllist  (+ midperm)' },
+        { name: 'Admin', value: '-ban | -clear | -censure | -antispam | -backup | -test\n-wperm | -unwperm | -wpermlist\n-midperm | -unmidperm | -midpermlist\n-panel | -make panel' },
+        { name: 'Owner uniquement', value: '-gif <lien>' },
+      )
+      .setFooter({ text: `Prefixe : ${PREFIX}` })
+      .setTimestamp();
+    await message.reply({ embeds: [embed] });
   }
 
   // ════════════════════════════════
@@ -399,7 +408,7 @@ client.on('messageCreate', async message => {
     if (!num || num < 1 || num > w.length) return message.reply(`Numero invalide. ${target.user.tag} a ${w.length} warn(s).`);
     const removed = w.splice(num - 1, 1)[0];
     warns.set(target.id, w);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Warn supprime').setDescription(`Warn n${num} de ${target.user.tag} supprime.\nRaison etait : ${removed.raison}\nWarns restants : ${w.length}`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Warn supprime').setDescription(`Warn n${num} supprime.\nRaison etait : ${removed.raison}\nWarns restants : ${w.length}`).setTimestamp()] });
   }
 
   if (cmd === 'warns') {
@@ -456,7 +465,7 @@ client.on('messageCreate', async message => {
     whitelistSet.add(target.id);
     const role = message.guild.roles.cache.get(IDS.ROLE_WL);
     if (role) await target.roles.add(role).catch(() => {});
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Whitelist').setDescription(`${target.user.tag} ajoute a la whitelist.`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Whitelist').setDescription(`${target.user.tag} ajoute.`).setTimestamp()] });
   }
 
   if (cmd === 'unwl') {
@@ -466,7 +475,7 @@ client.on('messageCreate', async message => {
     whitelistSet.delete(target.id);
     const role = message.guild.roles.cache.get(IDS.ROLE_WL);
     if (role) await target.roles.remove(role).catch(() => {});
-    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Whitelist').setDescription(`${target.user.tag} retire de la whitelist.`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Whitelist').setDescription(`${target.user.tag} retire.`).setTimestamp()] });
   }
 
   if (cmd === 'wllist') {
@@ -604,34 +613,31 @@ client.on('messageCreate', async message => {
     await message.delete().catch(() => {});
   }
 
+  // ════════════════════════════════
+  //   COMMANDE OWNER
+  // ════════════════════════════════
+
+  if (cmd === 'gif') {
+    if (message.author.id !== OWNER_ID) return message.reply('Permission refusee.');
+    const lien = args[0];
+    if (!lien) return message.reply('Usage : `-gif <lien>`');
+    await message.channel.send(lien);
+    await message.delete().catch(() => {});
+  }
+
   if (cmd === 'panel') {
     if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const type = args[0]?.toLowerCase();
-    if (type === 'reglement') await sendPanelReglement(message.guild);
-    else if (type === 'roles') await sendPanelRoles(message.guild);
+    if (type === 'reglement')   await sendPanelReglement(message.guild);
+    else if (type === 'roles')  await sendPanelRoles(message.guild);
     else if (type === 'tickets') await sendPanelTickets(message.guild);
     else if (type === 'prison') await sendPanelPrison(message.guild);
-    else if (type === 'top') { await sendTopMessages(message.guild); await sendTopVoc(message.guild); }
+    else if (type === 'top')    { await sendTopMessages(message.guild); await sendTopVoc(message.guild); }
     else if (type === 'partenariat') await sendPanelPartenariat(message.guild);
     else return message.reply('Types : `reglement` `roles` `tickets` `prison` `top` `partenariat`');
     const confirm = await message.reply('Panel envoye !');
     setTimeout(() => confirm.delete().catch(() => {}), 3000);
     await message.delete().catch(() => {});
-  }
-
-  if (cmd === 'help') {
-    const embed = new EmbedBuilder()
-      .setColor(COLOR)
-      .setAuthor({ name: 'Naytawa Bot - Commandes', iconURL: client.user.displayAvatarURL() })
-      .addFields(
-        { name: 'Tout le monde', value: '-naytawa | -avatar | -profil | -love | -invites | -topinvites | -ping' },
-        { name: 'Midperm', value: '-warn | -unwarn | -warns | -mute | -unmute' },
-        { name: 'Wperm', value: '-kick | -wl | -unwl | -wllist + midperm' },
-        { name: 'Admin', value: '-ban | -clear | -censure | -antispam | -backup | -test\n-wperm | -unwperm | -wpermlist\n-midperm | -unmidperm | -midpermlist\n-panel | -make panel' },
-      )
-      .setFooter({ text: `Prefixe : ${PREFIX}` })
-      .setTimestamp();
-    await message.reply({ embeds: [embed] });
   }
 });
 
@@ -702,7 +708,6 @@ async function sendPanelRoles(guild) {
 
 async function sendPanelTickets(guild) {
   try {
-    // REGLEMENT TICKETS (salon 1505541456234807316)
     const salonRegles = guild.channels.cache.get(IDS.SALON_TICKET_REGLES);
     if (salonRegles) {
       await salonRegles.send({ embeds: [new EmbedBuilder()
@@ -725,8 +730,6 @@ async function sendPanelTickets(guild) {
         ].join('\n'))
         .setFooter({ text: 'Naytawa' })] });
     }
-
-    // PANEL CREATION TICKET (salon 1505541456419618856)
     const salonPanel = guild.channels.cache.get(IDS.SALON_TICKET_PANEL);
     if (salonPanel) {
       const menu = new StringSelectMenuBuilder()
@@ -768,7 +771,7 @@ async function sendPanelPrison(guild) {
       .setDescription([
         '> Salut a toi, tu as atterri ici parce que tu as enfreint les regles du serveur.',
         '',
-        'Ta sanction a ete jugee suffisamment grave pour necessitera un passage en prison.',
+        'Ta sanction a ete jugee suffisamment grave pour necessiter un passage en prison.',
         '',
         'Pour en sortir, une mission t\'attend.',
         'Un membre de la gestion prison va te contacter et t\'expliquer ce que tu dois faire.',
@@ -912,8 +915,8 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     } else if (oldState.channelId !== newState.channelId) {
       if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Changement vocal').setDescription(`Membre : ${member.user.tag}\nDe : <#${oldState.channelId}>\nVers : <#${newState.channelId}>\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
     }
-    if (!oldState.serverMute && newState.serverMute && logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Mute vocal').setDescription(`Membre : ${member.user.tag} (${member.id})\nStatut : Mute par le serveur\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
-    if (oldState.serverMute && !newState.serverMute && logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Demute vocal').setDescription(`Membre : ${member.user.tag} (${member.id})\nStatut : N'est plus mute\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
+    if (!oldState.serverMute && newState.serverMute && logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Mute vocal').setDescription(`Membre : ${member.user.tag} (${member.id})\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
+    if (oldState.serverMute && !newState.serverMute && logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Demute vocal').setDescription(`Membre : ${member.user.tag} (${member.id})\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
   } catch (e) { console.error('VoiceState:', e.message); }
 });
 
@@ -922,7 +925,9 @@ client.on('messageDelete', async message => {
   if (message.author?.bot) return;
   const logCh = message.guild?.channels.cache.get(IDS.LOG_MSG);
   if (!logCh) return;
-  const embed = new EmbedBuilder().setColor('#ed4245').setTitle('Message supprime').setDescription(`Auteur : ${message.author?.tag} (${message.author?.id})\nSalon : <#${message.channel.id}>\nEnvoye le : <t:${Math.floor(message.createdTimestamp/1000)}:F>\nSupprime le : <t:${Math.floor(Date.now()/1000)}:F>\nContenu :\n${message.content ? message.content.slice(0, 1000) : 'Non disponible'}`).setTimestamp();
+  const embed = new EmbedBuilder().setColor('#ed4245').setTitle('Message supprime')
+    .setDescription(`Auteur : ${message.author?.tag} (${message.author?.id})\nSalon : <#${message.channel.id}>\nEnvoye le : <t:${Math.floor(message.createdTimestamp/1000)}:F>\nSupprime le : <t:${Math.floor(Date.now()/1000)}:F>\nContenu :\n${message.content ? message.content.slice(0, 1000) : 'Non disponible'}`)
+    .setTimestamp();
   if (message.attachments.size > 0) embed.addFields({ name: 'Pieces jointes', value: message.attachments.map(a => a.url).join('\n') });
   logCh.send({ embeds: [embed] });
 });
@@ -932,14 +937,16 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
   if (oldMessage.content === newMessage.content) return;
   const logCh = newMessage.guild?.channels.cache.get(IDS.LOG_MSG);
   if (!logCh) return;
-  logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Message modifie').setDescription(`Auteur : ${newMessage.author?.tag} (${newMessage.author?.id})\nSalon : <#${newMessage.channel.id}>\nAvant :\n${oldMessage.content?.slice(0, 500) || 'Non disponible'}\nApres :\n${newMessage.content?.slice(0, 500)}\n[Aller au message](${newMessage.url})`).setTimestamp()] });
+  logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Message modifie')
+    .setDescription(`Auteur : ${newMessage.author?.tag} (${newMessage.author?.id})\nSalon : <#${newMessage.channel.id}>\nAvant :\n${oldMessage.content?.slice(0, 500) || 'Non disponible'}\nApres :\n${newMessage.content?.slice(0, 500)}\n[Aller au message](${newMessage.url})`)
+    .setTimestamp()] });
 });
 
 // ══ INTERACTIONS ══
 client.on('interactionCreate', async interaction => {
   try {
     const member = interaction.member;
-    const guild = interaction.guild;
+    const guild  = interaction.guild;
 
     if (interaction.isStringSelectMenu()) {
 
@@ -988,8 +995,8 @@ client.on('interactionCreate', async interaction => {
         if (val === 'arrivee') {
           embed = new EmbedBuilder().setColor(COLOR).setTitle(`Arrivee de ${target.displayName}`).setThumbnail(target.user.displayAvatarURL({ dynamic: true }))
             .addFields(
-              { name: 'Arrive sur le serveur', value: `<t:${Math.floor(target.joinedTimestamp/1000)}:F> (<t:${Math.floor(target.joinedTimestamp/1000)}:R>)`, inline: false },
-              { name: 'Compte cree le', value: `<t:${Math.floor(target.user.createdTimestamp/1000)}:F> (<t:${Math.floor(target.user.createdTimestamp/1000)}:R>)`, inline: false },
+              { name: 'Arrive sur le serveur', value: `<t:${Math.floor(target.joinedTimestamp/1000)}:F> (<t:${Math.floor(target.joinedTimestamp/1000)}:R>)` },
+              { name: 'Compte cree le', value: `<t:${Math.floor(target.user.createdTimestamp/1000)}:F> (<t:${Math.floor(target.user.createdTimestamp/1000)}:R>)` },
             ).setTimestamp();
         }
         if (val === 'avatar') {
