@@ -32,6 +32,7 @@ const IDS = {
   SALON_TOP_MSG:         '1505541388622762084',
   SALON_TOP_VOC:         '1505541364182683849',
   SALON_BIENVENUE:       '1506393454719144087',
+  SALON_PRISON:          '1505541512971419781',
   SALON_TICKET_REGLES:   '1505541456234807316',
   SALON_TICKET_PANEL:    '1505541456419618856',
   SALON_AUTO_REACT:      '1505541372436943101',
@@ -60,14 +61,16 @@ const IDS = {
 };
 
 const GIF = {
-  TOP:           'https://cdn.discordapp.com/attachments/1505541381198975036/1506664608612483122/InShot_20260519_234951472.gif?ex=6a0f1643&is=6a0dc4c3&hm=7d6fddcf3e32fb7b55909992bbeaae66784b9232048fbc02ef083203654bce5f&',
-  TICKET_PANEL:  'https://cdn.discordapp.com/attachments/1505541381198975036/1506650888176140499/4852aeedde73d6eac84f075c6b9c4ce6.gif?ex=6a0f097b&is=6a0db7fb&hm=fa662e8ead0f539d63203366b7c1b3cf62775bf8ce6e2f9b79ab28a2f3eb7ae4&',
-  TICKET_REGLES: 'https://cdn.discordapp.com/attachments/1505541381198975036/1506650895348400278/c84fb740471d58ba9597ace28969d490.gif?ex=6a0f097d&is=6a0db7fd&hm=424bf2e0b57d09bef7f86dabc89869b5ca14712cfa9b9967a9938f785d99bc29&',
-  ROLES:         'https://cdn.discordapp.com/attachments/1505541381198975036/1506650955934863461/dd1d77397d99e16c07a910c8d9799356.gif?ex=6a0f098c&is=6a0db80c&hm=920422f4de8cab635912e060e313a437741fd58875d523cfdd67cae545680dbd&',
-  REGLEMENT:     'https://media.discordapp.net/attachments/1505541381198975036/1506024629431435314/dc0441577ed4e4af0a57adcbe419b019.gif?ex=6a0ebc7c&is=6a0d6afc&hm=0609c867436be42e08f80bc81d8e3cc2949919d440171ac81a4266e866821816&width=432&height=243&',
-  STATS:         'https://cdn.discordapp.com/attachments/1505541381198975036/1506232278517420104/d99d4ab19c4d867a9a9a8b91ef775db6.gif?ex=6a0d839f&is=6a0c321f&hm=0f36d6b96fe74aac88965047d78578cfe090901a48f6d908f1831a95149492a3&',
-  PARTENARIAT:   'https://cdn.discordapp.com/attachments/1505541381198975036/1506232948930908170/1a13c8300696a51f0f7e45d726cce0b3_1.gif?ex=6a0d843f&is=6a0c32bf&hm=1997c636b1907355274fd7dff57e14db10af02cedd35916a902bde86df43a557&',
+  TOP:           'https://cdn.discordapp.com/attachments/1505541381198975036/1506664608612483122/InShot_20260519_234951472.gif',
+  TICKET_PANEL:  'https://cdn.discordapp.com/attachments/1505541381198975036/1506650888176140499/4852aeedde73d6eac84f075c6b9c4ce6.gif',
+  TICKET_REGLES: 'https://cdn.discordapp.com/attachments/1505541381198975036/1506650895348400278/c84fb740471d58ba9597ace28969d490.gif',
+  ROLES:         'https://cdn.discordapp.com/attachments/1505541381198975036/1506650955934863461/dd1d77397d99e16c07a910c8d9799356.gif',
+  REGLEMENT:     'https://media.discordapp.net/attachments/1505541381198975036/1506024629431435314/dc0441577ed4e4af0a57adcbe419b019.gif',
+  STATS:         'https://cdn.discordapp.com/attachments/1505541381198975036/1506232278517420104/d99d4ab19c4d867a9a9a8b91ef775db6.gif',
+  PARTENARIAT:   'https://cdn.discordapp.com/attachments/1505541381198975036/1506232948930908170/1a13c8300696a51f0f7e45d726cce0b3_1.gif',
 };
+
+const VIDEO_LOVE = 'https://media.discordapp.net/attachments/1462161276187836487/1506763751502778449/fan2javel_TikTokDownloader.com_71fe3.mp4';
 
 // ══ DONNÉES ══
 const messageCount = new Map();
@@ -99,16 +102,15 @@ function isMidperm(member) {
 
 // ══ MOTS INTERDITS ══
 const MOTS_INTERDITS = [
-  'nique ta mère','nique ta mere','fils de pute','tue toi','tue-toi','ouvre toi les veines',
-  'crève','va mourir','fais toi du mal','coupe toi','pends toi','jette toi par',
-  'porn','porno','xxx','xvideos','xnxx','pornhub','redtube','youporn',
-  'branlette','branler','masturber','ejaculer','sodomie','sodomiser','fellation',
-  'partouze','gangbang','inceste','pédophile','pedophile',
-  'ntm','fdp','salope','connard','connasse','enculé','enculer','batard','bâtard',
-  'n1que','n!que','niq','nik','n-t-m','f.d.p','s4lope','s@lope','c0nnard',
-  'enc*lé','b1te','put1n','put@in','sa1ope','puta1n',
+  'nique ta mère','nique ta mere','fils de pute','tue toi','tue-toi',
+  'ouvre toi les veines','crève','va mourir','fais toi du mal','coupe toi',
+  'pends toi','jette toi par','porn','porno','xxx','xvideos','xnxx',
+  'pornhub','redtube','youporn','branlette','branler','masturber',
+  'ejaculer','sodomie','sodomiser','fellation','partouze','gangbang',
+  'inceste','pédophile','pedophile','ntm','fdp','salope','connard',
+  'connasse','enculé','enculer','batard','bâtard','n1que','n!que',
+  'niq','nik','n-t-m','f.d.p','s4lope','s@lope','c0nnard','enc*lé','b1te',
 ];
-
 const FAUX_POSITIFS = ['prévention','psychologue','hopital','médecin','santé','thérapie'];
 
 function contientMotInterdit(texte) {
@@ -120,20 +122,19 @@ function contientMotInterdit(texte) {
     if (m.length <= 4) {
       const regex = new RegExp(`\\b${m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
       if (regex.test(t)) return mot;
-    } else {
-      if (t.includes(m)) return mot;
-    }
+    } else if (t.includes(m)) return mot;
   }
   return null;
 }
 
 // ══ READY ══
 client.once('ready', async () => {
-  console.log(`Bot connecté : ${client.user.tag}`);
+  console.log(`Bot connecte : ${client.user.tag}`);
   for (const [, guild] of client.guilds.cache) {
     const invites = await guild.invites.fetch().catch(() => null);
     if (invites) inviteTracker.set(guild.id, new Map(invites.map(i => [i.code, { uses: i.uses || 0, inviterId: i.inviter?.id }])));
   }
+  // Stats toutes les minutes — envoie un nouveau message a chaque fois
   updateStats();
   setInterval(updateStats, 60000);
   setInterval(() => updateTopVoc(), 300000);
@@ -145,7 +146,7 @@ client.on('inviteCreate', invite => {
   inviteTracker.set(invite.guild.id, map);
 });
 
-// ══ STATS ══
+// ══ STATS — nouveau message chaque minute ══
 async function updateStats() {
   try {
     const guild = client.guilds.cache.first();
@@ -165,15 +166,19 @@ async function updateStats() {
     if (!salon) return;
     const embed = new EmbedBuilder()
       .setColor(COLOR)
+      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Statistiques du serveur')
-      .setDescription(`Membres : ${total}\nEn ligne : ${online}\nEn vocal : ${voc}\nBoosts : ${boosts}`)
-      .setThumbnail(guild.iconURL({ dynamic: true }))
       .setImage(GIF.STATS)
+      .addFields(
+        { name: 'Membres', value: `${total}`, inline: true },
+        { name: 'En ligne', value: `${online}`, inline: true },
+        { name: 'En vocal', value: `${voc}`, inline: true },
+        { name: 'Boosts', value: `${boosts}`, inline: true },
+      )
       .setTimestamp()
       .setFooter({ text: 'Naytawa' });
-    const msgs = await salon.messages.fetch({ limit: 20 });
-    const ex = msgs.find(m => m.author.id === client.user.id && m.embeds[0]?.title?.includes('Statistiques'));
-    if (ex) await ex.edit({ embeds: [embed] }); else await salon.send({ embeds: [embed] });
+    // Envoie un nouveau message a chaque fois pour donner de l'activite
+    await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Stats:', e.message); }
 }
 
@@ -184,33 +189,27 @@ client.on('guildMemberAdd', async member => {
     if (role) await member.roles.add(role);
     const salon = member.guild.channels.cache.get(IDS.SALON_BIENVENUE);
     if (!salon) return;
-
     const newInvites = await member.guild.invites.fetch().catch(() => null);
     const oldInvites = inviteTracker.get(member.guild.id) || new Map();
     let inviterId = null;
-
     if (newInvites) {
       for (const [code, invite] of newInvites) {
         const old = oldInvites.get(code);
-        if (old && (invite.uses || 0) > (old.uses || 0)) {
-          inviterId = invite.inviter?.id;
-          break;
-        }
+        if (old && (invite.uses || 0) > (old.uses || 0)) { inviterId = invite.inviter?.id; break; }
       }
       inviteTracker.set(member.guild.id, new Map(newInvites.map(i => [i.code, { uses: i.uses || 0, inviterId: i.inviter?.id }])));
     }
-
     if (inviterId && inviterId !== member.id) {
       const count = (inviteCount.get(inviterId) || 0) + 1;
       inviteCount.set(inviterId, count);
-      await salon.send(`Bienvenue ${member}, amuse-toi bien avec nous !\nMerci <@${inviterId}> d'avoir invité ${member}, fais-lui profiter du serveur ! (ca te fait ${count} invitation${count > 1 ? 's' : ''})`);
+      await salon.send(`Bienvenue ${member}, amuse-toi bien avec nous !\nMerci <@${inviterId}> d'avoir invite ${member} ! (ca te fait ${count} invitation${count > 1 ? 's' : ''})`);
     } else {
       await salon.send(`Bienvenue ${member}, amuse-toi bien avec nous !`);
     }
   } catch (e) { console.error('Bienvenue:', e.message); }
 });
 
-// ══ ROLES + BOOST LOGS ══
+// ══ ROLES + BOOST ══
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   try {
     if (!oldMember.premiumSince && newMember.premiumSince) {
@@ -224,18 +223,18 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     if (added.size > 0) {
       const role = added.first();
       const hist = rolesHistory.get(newMember.id) || [];
-      hist.unshift({ type: 'ajouté', name: role?.name, id: role?.id, date: new Date().toLocaleDateString('fr-FR') });
+      hist.unshift({ type: 'ajoute', name: role?.name, date: new Date().toLocaleDateString('fr-FR') });
       if (hist.length > 20) hist.pop();
       rolesHistory.set(newMember.id, hist);
-      logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Role ajouté').setDescription(`Membre : ${newMember.user.tag} (${newMember.id})\nRole ajouté : ${role?.name}\nRoles actuels : ${newMember.roles.cache.filter(r => r.id !== newMember.guild.id).map(r => r.name).join(', ') || 'Aucun'}\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
+      logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Role ajoute').setDescription(`Membre : ${newMember.user.tag} (${newMember.id})\nRole : ${role?.name}\nRoles actuels : ${newMember.roles.cache.filter(r => r.id !== newMember.guild.id).map(r => r.name).join(', ') || 'Aucun'}\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
     }
     if (removed.size > 0) {
       const role = removed.first();
       const hist = rolesHistory.get(newMember.id) || [];
-      hist.unshift({ type: 'retiré', name: role?.name, id: role?.id, date: new Date().toLocaleDateString('fr-FR') });
+      hist.unshift({ type: 'retire', name: role?.name, date: new Date().toLocaleDateString('fr-FR') });
       if (hist.length > 20) hist.pop();
       rolesHistory.set(newMember.id, hist);
-      logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Role retiré').setDescription(`Membre : ${newMember.user.tag} (${newMember.id})\nRole retiré : ${role?.name}\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
+      logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Role retire').setDescription(`Membre : ${newMember.user.tag} (${newMember.id})\nRole : ${role?.name}\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
     }
   } catch (e) { console.error('MemberUpdate:', e.message); }
 });
@@ -244,11 +243,10 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 function checkSpam(message) {
   if (antiSpamExclus.has(message.channel.id)) return false;
   const now = Date.now();
-  const key = message.author.id;
-  const data = spamTracker.get(key) || { msgs: [], warned: false };
+  const data = spamTracker.get(message.author.id) || { msgs: [] };
   data.msgs = data.msgs.filter(t => now - t < 5000);
   data.msgs.push(now);
-  spamTracker.set(key, data);
+  spamTracker.set(message.author.id, data);
   return data.msgs.length > 5;
 }
 
@@ -263,24 +261,24 @@ client.on('messageCreate', async message => {
     if (botPingStage === 0) { await message.reply('Ntm fdp'); botPingStage = 1; }
     else if (botPingStage === 1) { await message.reply('Ftg frr cplc'); botPingStage = 2; }
     else {
-      await message.reply("Sayez je parle plus, t'es moche + t'as pas d'avenir, tu clc à un bot fdp ntm va bz ton père sah trdc trbl enfant de merde suce ma bite sale pute j'espère tu te réveilles pas enculé");
+      await message.reply("Sayez je parle plus, t'es moche + t'as pas d'avenir, tu clc a un bot fdp ntm va bz ton pere sah trdc trbl enfant de merde suce ma bite sale pute j'espere tu te reveilles pas encule");
       try { await message.member.timeout(60 * 1000); } catch {}
-      try { await message.author.send("Prends-le pas personnellement, on me clc à me ping h24, désolé de t'avoir insulté et mute"); } catch {}
+      try { await message.author.send("Prends-le pas personnellement, on me clc a me ping h24, desole de t'avoir insulte et mute"); } catch {}
       botPingStage = 0; botPingCooldown = now;
     }
     return;
   }
 
-  // Auto react
   if (message.channel.id === IDS.SALON_AUTO_REACT) await message.react('❤️').catch(() => {});
 
-  // Anti spam
   const isWL = message.member?.roles.cache.has(IDS.ROLE_WL) || whitelistSet.has(message.author.id);
+
+  // Anti spam
   if (!isWL && checkSpam(message)) {
     try {
       await message.delete();
-      await message.member.timeout(5 * 60 * 1000, 'Spam détecté');
-      const w = await message.channel.send(`${message.author} spam détecté, mute 5 minutes.`);
+      await message.member.timeout(5 * 60 * 1000, 'Spam detecte');
+      const w = await message.channel.send(`${message.author} spam detecte, mute 5 minutes.`);
       setTimeout(() => w.delete().catch(() => {}), 5000);
     } catch {}
     return;
@@ -292,32 +290,25 @@ client.on('messageCreate', async message => {
     if (motTrouve) {
       try {
         await message.delete();
-        const userId = message.author.id;
-        const w = warns.get(userId) || [];
+        const w = warns.get(message.author.id) || [];
         const infractions = w.filter(x => x.type === 'insulte').length;
-        let duree = infractions === 0 ? 15 : infractions === 1 ? 25 : 30;
-        let raison = `Infraction n°${infractions + 1} — langage inapproprié`;
+        const duree = infractions === 0 ? 15 : infractions === 1 ? 25 : 30;
+        const raison = `Infraction n${infractions + 1} — langage inapproprie`;
         w.push({ type: 'insulte', mot: motTrouve, raison, date: new Date().toLocaleDateString('fr-FR'), duree, by: 'Auto' });
-        warns.set(userId, w);
+        warns.set(message.author.id, w);
         await message.member.timeout(duree * 60 * 1000, raison).catch(() => {});
         const muteEnd = Math.floor((Date.now() + duree * 60 * 1000) / 1000);
-        if (infractions >= 2) {
-          setTimeout(() => {
-            const cw = warns.get(userId) || [];
-            warns.set(userId, cw.filter(x => x.type !== 'insulte'));
-          }, 60 * 60 * 1000);
-        }
-        try { await message.author.send(`Tu as été mute ${duree} minutes sur Naytawa.\nRaison : ${raison}\nFin : <t:${muteEnd}:F>`); } catch {}
+        if (infractions >= 2) setTimeout(() => { const cw = warns.get(message.author.id) || []; warns.set(message.author.id, cw.filter(x => x.type !== 'insulte')); }, 60 * 60 * 1000);
+        try { await message.author.send(`Tu as ete mute ${duree} minutes sur Naytawa.\nRaison : ${raison}\nFin : <t:${muteEnd}:F>`); } catch {}
         const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-        if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Auto-modération — Mute').setDescription(`Membre : ${message.author.tag} (${message.author.id})\nSalon : <#${message.channel.id}>\nMot détecté : ||${motTrouve}||\nMessage : ||${message.content.slice(0,500)}||\nDurée : ${duree} min\nFin : <t:${muteEnd}:F>\nInfraction : ${infractions + 1}`).setTimestamp()] });
-        const warn = await message.channel.send(`${message.author} message supprimé. Mute ${duree} minutes.`);
+        if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Auto-moderation').setDescription(`Membre : ${message.author.tag} (${message.author.id})\nSalon : <#${message.channel.id}>\nMot : ||${motTrouve}||\nMessage : ||${message.content.slice(0,500)}||\nDuree : ${duree} min\nFin : <t:${muteEnd}:F>\nInfraction : ${infractions + 1}`).setTimestamp()] });
+        const warn = await message.channel.send(`${message.author} message supprime. Mute ${duree} minutes.`);
         setTimeout(() => warn.delete().catch(() => {}), 5000);
       } catch (e) { console.error('Anti-insulte:', e.message); }
       return;
     }
   }
 
-  // Comptage
   const count = (messageCount.get(message.author.id) || 0) + 1;
   messageCount.set(message.author.id, count);
   if (count % 5 === 0) updateTopMessages(message.guild).catch(() => {});
@@ -326,17 +317,20 @@ client.on('messageCreate', async message => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const cmd = args.shift().toLowerCase();
 
-  // ══ COMMANDES LIBRES ══
+  // ════════════════════════════════
+  //   COMMANDES LIBRES
+  // ════════════════════════════════
+
   if (cmd === 'ping') {
-    await message.reply(`ftg laisse-moi tranquille.....ahhh mon préfixe c'est \`${PREFIX}\` !`);
+    await message.reply(`ftg laisse-moi tranquille.....ahhh mon prefixe c'est \`${PREFIX}\` !`);
   }
 
   if (cmd === 'naytawa') {
     const role = message.guild.roles.cache.get(IDS.ROLE_NAYTAWA);
-    if (!role) return message.reply('Rôle introuvable.');
-    if (message.member.roles.cache.has(IDS.ROLE_NAYTAWA)) return message.reply('Tu as déjà ce rôle !');
+    if (!role) return message.reply('Role introuvable.');
+    if (message.member.roles.cache.has(IDS.ROLE_NAYTAWA)) return message.reply('Tu as deja ce role !');
     await message.member.roles.add(role);
-    const m = await message.reply('Rôle Naytawa ajouté !');
+    const m = await message.reply('Role Naytawa ajoute !');
     setTimeout(() => m.delete().catch(() => {}), 3000);
     await message.delete().catch(() => {});
   }
@@ -348,44 +342,42 @@ client.on('messageCreate', async message => {
 
   if (cmd === 'profil') {
     const target = message.mentions.members.first() || message.member;
-    const embed = new EmbedBuilder().setColor(COLOR)
-      .setAuthor({ name: `Profil de ${target.displayName}`, iconURL: target.user.displayAvatarURL({ dynamic: true }) })
-      .setDescription('Que veux-tu voir ?')
-      .setThumbnail(target.user.displayAvatarURL({ dynamic: true, size: 256 }))
-      .setFooter({ text: 'Naytawa' });
     const menu = new StringSelectMenuBuilder()
       .setCustomId(`profil_${target.id}`)
       .setPlaceholder('Choisis ce que tu veux voir')
       .addOptions(
-        new StringSelectMenuOptionBuilder().setLabel('Date arrivée').setDescription("Date d'arrivée sur le serveur").setValue('arrivee'),
-        new StringSelectMenuOptionBuilder().setLabel('Photo de profil').setDescription('PP et bannière').setValue('avatar'),
+        new StringSelectMenuOptionBuilder().setLabel('Date arrivee').setDescription("Date d'arrivee sur le serveur").setValue('arrivee'),
+        new StringSelectMenuOptionBuilder().setLabel('Photo de profil').setDescription('PP et banniere').setValue('avatar'),
         new StringSelectMenuOptionBuilder().setLabel('Messages et vocal').setDescription('Stats messages et temps vocal').setValue('stats'),
-        new StringSelectMenuOptionBuilder().setLabel('Derniers roles').setDescription('10 derniers roles ajoutés/retirés').setValue('roles'),
+        new StringSelectMenuOptionBuilder().setLabel('Derniers roles').setDescription('10 derniers roles').setValue('roles'),
         new StringSelectMenuOptionBuilder().setLabel('Avertissements').setDescription('10 derniers warns').setValue('warns'),
       );
-    await message.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
+    await message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setAuthor({ name: `Profil de ${target.displayName}`, iconURL: target.user.displayAvatarURL({ dynamic: true }) }).setDescription('Que veux-tu voir ?').setThumbnail(target.user.displayAvatarURL({ dynamic: true })).setFooter({ text: 'Naytawa' })], components: [new ActionRowBuilder().addComponents(menu)] });
   }
 
   if (cmd === 'love') {
-    await message.reply({ content: 'https://media.discordapp.net/attachments/1505586853120839925/1506724736263258253/fan2javel_TikTokDownloader.com_71fe3.mp4?ex=6a0f4e42&is=6a0dfcc2&hm=51579106fdd5068695fb34ce48328f0a5570949aec17c0955fdeb88abc1a5618&' });
+    await message.channel.send(VIDEO_LOVE);
   }
 
   if (cmd === 'invites') {
     const target = message.mentions.members.first() || message.member;
     const count = inviteCount.get(target.id) || 0;
-    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle(`Invitations de ${target.displayName}`).setDescription(`${target.displayName} a invité **${count}** membre${count > 1 ? 's' : ''}.`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle(`Invitations de ${target.displayName}`).setDescription(`${target.displayName} a invite **${count}** membre${count > 1 ? 's' : ''}.`).setTimestamp()] });
   }
 
   if (cmd === 'topinvites') {
     const sorted = [...inviteCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
-    if (!sorted.length) return message.reply('Aucune donnée.');
-    const lines = sorted.map((e, i) => `Top ${i + 1} <@${e[0]}> — ${e[1]} invitation${e[1] > 1 ? 's' : ''}`);
+    if (!sorted.length) return message.reply('Aucune donnee.');
+    const lines = sorted.map((e, i) => `Top ${i + 1} <@${e[0]}> - ${e[1]} invitation${e[1] > 1 ? 's' : ''}`);
     message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Top 10 Invitations').setDescription(lines.join('\n')).setTimestamp().setFooter({ text: 'Naytawa' })] });
   }
 
-  // ══ COMMANDES MIDPERM ══
+  // ════════════════════════════════
+  //   COMMANDES MIDPERM
+  // ════════════════════════════════
+
   if (cmd === 'warn') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusée.');
+    if (!isMidperm(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     const reason = args.slice(1).join(' ') || 'Aucune raison';
@@ -399,143 +391,96 @@ client.on('messageCreate', async message => {
   }
 
   if (cmd === 'unwarn') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusée.');
+    if (!isMidperm(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     const num = parseInt(args[1]);
     const w = warns.get(target.id) || [];
-    if (!num || num < 1 || num > w.length) return message.reply(`Numéro invalide. ${target.user.tag} a ${w.length} warn(s).`);
+    if (!num || num < 1 || num > w.length) return message.reply(`Numero invalide. ${target.user.tag} a ${w.length} warn(s).`);
     const removed = w.splice(num - 1, 1)[0];
     warns.set(target.id, w);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Warn supprimé').setDescription(`Warn n°${num} de ${target.user.tag} supprimé.\nRaison était : ${removed.raison}\nWarns restants : ${w.length}`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Warn supprime').setDescription(`Warn n${num} de ${target.user.tag} supprime.\nRaison etait : ${removed.raison}\nWarns restants : ${w.length}`).setTimestamp()] });
   }
 
   if (cmd === 'warns') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusée.');
+    if (!isMidperm(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first() || message.member;
     const w = warns.get(target.id) || [];
     if (!w.length) return message.reply(`${target.user.tag} n'a aucun warn.`);
-    const lines = w.map((x, i) => `${i + 1}. ${x.raison || x.type} — ${x.date} par ${x.by || 'Auto'}`).join('\n');
-    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle(`Warns de ${target.user.tag}`).setDescription(lines).setFooter({ text: `Total : ${w.length}` }).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle(`Warns de ${target.user.tag}`).setDescription(w.map((x, i) => `${i + 1}. ${x.raison || x.type} - ${x.date} par ${x.by || 'Auto'}`).join('\n')).setFooter({ text: `Total : ${w.length}` }).setTimestamp()] });
   }
 
   if (cmd === 'mute') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusée.');
+    if (!isMidperm(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     const duree = parseInt(args[1]) || 10;
     const reason = args.slice(2).join(' ') || 'Aucune raison';
     await target.timeout(duree * 60 * 1000, reason);
     const muteEnd = Math.floor((Date.now() + duree * 60 * 1000) / 1000);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Mute').setDescription(`Membre : ${target.user.tag}\nDurée : ${duree} min\nFin : <t:${muteEnd}:R>\nRaison : ${reason}`).setTimestamp()] });
-    try { await target.send(`Tu as été mute ${duree} minutes sur Naytawa.\nRaison : ${reason}\nFin : <t:${muteEnd}:F>`); } catch {}
+    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Mute').setDescription(`Membre : ${target.user.tag}\nDuree : ${duree} min\nFin : <t:${muteEnd}:R>\nRaison : ${reason}`).setTimestamp()] });
+    try { await target.send(`Tu as ete mute ${duree} minutes sur Naytawa.\nRaison : ${reason}\nFin : <t:${muteEnd}:F>`); } catch {}
     const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Mute').setDescription(`Muté : ${target.user.tag} (${target.id})\nPar : ${message.author.tag}\nDurée : ${duree} min\nFin : <t:${muteEnd}:F>\nRaison : ${reason}`).setTimestamp()] });
+    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Mute').setDescription(`Mute : ${target.user.tag} (${target.id})\nPar : ${message.author.tag}\nDuree : ${duree} min\nFin : <t:${muteEnd}:F>\nRaison : ${reason}`).setTimestamp()] });
   }
 
   if (cmd === 'unmute') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusée.');
+    if (!isMidperm(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     await target.timeout(null);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Unmute').setDescription(`${target.user.tag} démuté.`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Unmute').setDescription(`${target.user.tag} demute.`).setTimestamp()] });
     const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Unmute').setDescription(`Démuté : ${target.user.tag} (${target.id})\nPar : ${message.author.tag}\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
+    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Unmute').setDescription(`Demute : ${target.user.tag} (${target.id})\nPar : ${message.author.tag}\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
   }
 
-  // ══ COMMANDES WPERM ══
+  // ════════════════════════════════
+  //   COMMANDES WPERM
+  // ════════════════════════════════
+
   if (cmd === 'kick') {
-    if (!isWperm(message.member)) return message.reply('Permission refusée.');
+    if (!isWperm(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     const reason = args.slice(1).join(' ') || 'Aucune raison';
     await target.kick(reason);
     message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Expulsion').setDescription(`Membre : ${target.user.tag}\nRaison : ${reason}`).setTimestamp()] });
     const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Kick').setDescription(`Expulsé : ${target.user.tag} (${target.id})\nPar : ${message.author.tag}\nRaison : ${reason}\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
+    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Kick').setDescription(`Expulse : ${target.user.tag} (${target.id})\nPar : ${message.author.tag}\nRaison : ${reason}\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
   }
 
   if (cmd === 'wl') {
-    if (!isWperm(message.member)) return message.reply('Permission refusée.');
+    if (!isWperm(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     whitelistSet.add(target.id);
     const role = message.guild.roles.cache.get(IDS.ROLE_WL);
     if (role) await target.roles.add(role).catch(() => {});
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Whitelist').setDescription(`${target.user.tag} ajouté à la whitelist.`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Whitelist').setDescription(`${target.user.tag} ajoute a la whitelist.`).setTimestamp()] });
   }
 
   if (cmd === 'unwl') {
-    if (!isWperm(message.member)) return message.reply('Permission refusée.');
+    if (!isWperm(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     whitelistSet.delete(target.id);
     const role = message.guild.roles.cache.get(IDS.ROLE_WL);
     if (role) await target.roles.remove(role).catch(() => {});
-    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Whitelist').setDescription(`${target.user.tag} retiré de la whitelist.`).setTimestamp()] });
+    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Whitelist').setDescription(`${target.user.tag} retire de la whitelist.`).setTimestamp()] });
   }
 
   if (cmd === 'wllist') {
-    if (!isWperm(message.member)) return message.reply('Permission refusée.');
-    if (!whitelistSet.size) return message.reply('La whitelist est vide.');
-    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Whitelist censure').setDescription([...whitelistSet].map(id => `<@${id}>`).join('\n')).setTimestamp()] });
+    if (!isWperm(message.member)) return message.reply('Permission refusee.');
+    if (!whitelistSet.size) return message.reply('Whitelist vide.');
+    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Whitelist').setDescription([...whitelistSet].map(id => `<@${id}>`).join('\n')).setTimestamp()] });
   }
 
-  if (cmd === 'wperm') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    wpermSet.add(target.id);
-    const role = message.guild.roles.cache.get(IDS.ROLE_WPERM);
-    if (role) await target.roles.add(role).catch(() => {});
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Wperm').setDescription(`${target.user.tag} a reçu les permissions wperm.`).setTimestamp()] });
-  }
+  // ════════════════════════════════
+  //   COMMANDES ADMIN
+  // ════════════════════════════════
 
-  if (cmd === 'unwperm') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    wpermSet.delete(target.id);
-    const role = message.guild.roles.cache.get(IDS.ROLE_WPERM);
-    if (role) await target.roles.remove(role).catch(() => {});
-    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Wperm').setDescription(`${target.user.tag} n'a plus les permissions wperm.`).setTimestamp()] });
-  }
-
-  if (cmd === 'wpermlist') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
-    if (!wpermSet.size) return message.reply('Liste wperm vide.');
-    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Liste Wperm').setDescription([...wpermSet].map(id => `<@${id}>`).join('\n')).setTimestamp()] });
-  }
-
-  if (cmd === 'midperm') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    midpermSet.add(target.id);
-    const role = message.guild.roles.cache.get(IDS.ROLE_MIDPERM);
-    if (role) await target.roles.add(role).catch(() => {});
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Midperm').setDescription(`${target.user.tag} a reçu les permissions midperm.`).setTimestamp()] });
-  }
-
-  if (cmd === 'unmidperm') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    midpermSet.delete(target.id);
-    const role = message.guild.roles.cache.get(IDS.ROLE_MIDPERM);
-    if (role) await target.roles.remove(role).catch(() => {});
-    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Midperm').setDescription(`${target.user.tag} n'a plus les permissions midperm.`).setTimestamp()] });
-  }
-
-  if (cmd === 'midpermlist') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
-    if (!midpermSet.size) return message.reply('Liste midperm vide.');
-    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Liste Midperm').setDescription([...midpermSet].map(id => `<@${id}>`).join('\n')).setTimestamp()] });
-  }
-
-  // ══ COMMANDES ADMIN ══
   if (cmd === 'ban') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     const reason = args.slice(1).join(' ') || 'Aucune raison';
@@ -546,86 +491,130 @@ client.on('messageCreate', async message => {
   }
 
   if (cmd === 'clear') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const n = parseInt(args[0]);
     if (!n || n < 1 || n > 100) return message.reply('Nombre entre 1 et 100.');
     const deleted = await message.channel.bulkDelete(n + 1, true);
-    const m = await message.channel.send(`${deleted.size - 1} messages supprimés.`);
+    const m = await message.channel.send(`${deleted.size - 1} messages supprimes.`);
     setTimeout(() => m.delete().catch(() => {}), 3000);
     const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Clear').setDescription(`Par : ${message.author.tag}\nSalon : <#${message.channel.id}>\nQuantité : ${deleted.size - 1}\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
+    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Clear').setDescription(`Par : ${message.author.tag}\nSalon : <#${message.channel.id}>\nQuantite : ${deleted.size - 1}\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
   }
 
   if (cmd === 'censure') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const etat = args[0]?.toLowerCase();
-    if (etat === 'on') { censureActif = true; message.reply('Anti-insultes activé.'); }
-    else if (etat === 'off') { censureActif = false; message.reply('Anti-insultes désactivé.'); }
-    else message.reply(`Anti-insultes : **${censureActif ? 'Actif' : 'Désactivé'}**`);
+    if (etat === 'on') { censureActif = true; message.reply('Anti-insultes active.'); }
+    else if (etat === 'off') { censureActif = false; message.reply('Anti-insultes desactive.'); }
+    else message.reply(`Anti-insultes : **${censureActif ? 'Actif' : 'Desactive'}**`);
   }
 
   if (cmd === 'antispam') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     if (antiSpamExclus.has(message.channel.id)) {
       antiSpamExclus.delete(message.channel.id);
-      message.reply('Anti-spam activé dans ce salon.');
+      message.reply('Anti-spam active dans ce salon.');
     } else {
       antiSpamExclus.add(message.channel.id);
-      message.reply('Anti-spam désactivé dans ce salon (salon exclu).');
+      message.reply('Anti-spam desactive dans ce salon.');
     }
   }
 
+  if (cmd === 'wperm') {
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
+    const target = message.mentions.members.first();
+    if (!target) return message.reply('Mentionne un membre.');
+    wpermSet.add(target.id);
+    const role = message.guild.roles.cache.get(IDS.ROLE_WPERM);
+    if (role) await target.roles.add(role).catch(() => {});
+    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Wperm').setDescription(`${target.user.tag} a les permissions wperm.`).setTimestamp()] });
+  }
+
+  if (cmd === 'unwperm') {
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
+    const target = message.mentions.members.first();
+    if (!target) return message.reply('Mentionne un membre.');
+    wpermSet.delete(target.id);
+    const role = message.guild.roles.cache.get(IDS.ROLE_WPERM);
+    if (role) await target.roles.remove(role).catch(() => {});
+    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Wperm').setDescription(`${target.user.tag} n'a plus les permissions wperm.`).setTimestamp()] });
+  }
+
+  if (cmd === 'wpermlist') {
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
+    if (!wpermSet.size) return message.reply('Liste wperm vide.');
+    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Liste Wperm').setDescription([...wpermSet].map(id => `<@${id}>`).join('\n')).setTimestamp()] });
+  }
+
+  if (cmd === 'midperm') {
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
+    const target = message.mentions.members.first();
+    if (!target) return message.reply('Mentionne un membre.');
+    midpermSet.add(target.id);
+    const role = message.guild.roles.cache.get(IDS.ROLE_MIDPERM);
+    if (role) await target.roles.add(role).catch(() => {});
+    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Midperm').setDescription(`${target.user.tag} a les permissions midperm.`).setTimestamp()] });
+  }
+
+  if (cmd === 'unmidperm') {
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
+    const target = message.mentions.members.first();
+    if (!target) return message.reply('Mentionne un membre.');
+    midpermSet.delete(target.id);
+    const role = message.guild.roles.cache.get(IDS.ROLE_MIDPERM);
+    if (role) await target.roles.remove(role).catch(() => {});
+    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Midperm').setDescription(`${target.user.tag} n'a plus les permissions midperm.`).setTimestamp()] });
+  }
+
+  if (cmd === 'midpermlist') {
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
+    if (!midpermSet.size) return message.reply('Liste midperm vide.');
+    message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Liste Midperm').setDescription([...midpermSet].map(id => `<@${id}>`).join('\n')).setTimestamp()] });
+  }
+
   if (cmd === 'test') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const guild = message.guild;
-    const embed = new EmbedBuilder()
-      .setColor('#3ba55c')
-      .setTitle('Diagnostic Naytawa Bot')
+    const embed = new EmbedBuilder().setColor('#3ba55c').setTitle('Diagnostic Naytawa Bot')
       .addFields(
         { name: 'Bot', value: `Tag : ${client.user.tag}\nPing : ${client.ws.ping}ms\nUptime : ${Math.floor(client.uptime/1000)}s` },
-        { name: 'Systèmes', value: `Anti-insultes : ${censureActif ? 'Actif' : 'Désactivé'}\nWhitelist : ${whitelistSet.size} membres\nWperm : ${wpermSet.size}\nMidperm : ${midpermSet.size}` },
-        { name: 'Données', value: `Messages trackés : ${messageCount.size}\nVocal trackés : ${vocTime.size}\nWarns : ${warns.size}\nInvitations : ${inviteCount.size}` },
-        { name: 'Salons', value: [
-          `Bienvenue : ${guild.channels.cache.get(IDS.SALON_BIENVENUE) ? 'OK' : 'MANQUANT'}`,
-          `Stats : ${guild.channels.cache.get(IDS.SALON_STATS) ? 'OK' : 'MANQUANT'}`,
-          `Top MSG : ${guild.channels.cache.get(IDS.SALON_TOP_MSG) ? 'OK' : 'MANQUANT'}`,
-          `Top VOC : ${guild.channels.cache.get(IDS.SALON_TOP_VOC) ? 'OK' : 'MANQUANT'}`,
-          `Tickets : ${guild.channels.cache.get(IDS.SALON_TICKET_PANEL) ? 'OK' : 'MANQUANT'}`,
-          `Logs MOD : ${guild.channels.cache.get(IDS.LOG_MOD) ? 'OK' : 'MANQUANT'}`,
-        ].join('\n') },
-      )
-      .setTimestamp();
+        { name: 'Systemes', value: `Anti-insultes : ${censureActif ? 'Actif' : 'Desactive'}\nWhitelist : ${whitelistSet.size}\nWperm : ${wpermSet.size}\nMidperm : ${midpermSet.size}` },
+        { name: 'Donnees', value: `Messages : ${messageCount.size}\nVocal : ${vocTime.size}\nWarns : ${warns.size}\nInvitations : ${inviteCount.size}` },
+        { name: 'Salons', value: ['SALON_STATS','SALON_TOP_MSG','SALON_TOP_VOC','SALON_BIENVENUE','SALON_TICKET_PANEL','LOG_MOD','LOG_VOC','LOG_MSG'].map(k => `${k} : ${guild.channels.cache.get(IDS[k]) ? 'OK' : 'MANQUANT'}`).join('\n') },
+      ).setTimestamp();
     await message.reply({ embeds: [embed] });
   }
 
   if (cmd === 'backup') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const guild = message.guild;
-    const channels = guild.channels.cache.map(c => ({ name: c.name, type: c.type, position: c.position, parentId: c.parentId }));
-    const roles = guild.roles.cache.filter(r => r.id !== guild.id).map(r => ({ name: r.name, color: r.color, permissions: r.permissions.bitfield.toString(), position: r.position }));
-    const backup = JSON.stringify({ channels, roles, memberCount: guild.memberCount, name: guild.name, date: new Date().toISOString() }, null, 2);
-    const attachment = new AttachmentBuilder(Buffer.from(backup), { name: `backup-${guild.name}-${Date.now()}.json` });
-    await message.reply({ content: 'Backup généré !', files: [attachment] });
+    const data = JSON.stringify({
+      channels: guild.channels.cache.map(c => ({ name: c.name, type: c.type, position: c.position, parentId: c.parentId })),
+      roles: guild.roles.cache.filter(r => r.id !== guild.id).map(r => ({ name: r.name, color: r.color, permissions: r.permissions.bitfield.toString(), position: r.position })),
+      memberCount: guild.memberCount, name: guild.name, date: new Date().toISOString()
+    }, null, 2);
+    await message.reply({ content: 'Backup genere !', files: [new AttachmentBuilder(Buffer.from(data), { name: `backup-${Date.now()}.json` })] });
   }
 
   if (cmd === 'make' && args[0] === 'panel') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const titre = args[1] || 'Panel';
-    const description = args.slice(2).join(' ') || 'Description.';
-    await message.channel.send({ embeds: [new EmbedBuilder().setColor(COLOR).setAuthor({ name: 'Naytawa', iconURL: message.guild.iconURL({ dynamic: true }) }).setTitle(titre).setDescription(description).setTimestamp().setFooter({ text: 'Naytawa' })] });
+    const desc = args.slice(2).join(' ') || 'Description.';
+    await message.channel.send({ embeds: [new EmbedBuilder().setColor(COLOR).setAuthor({ name: 'Naytawa', iconURL: message.guild.iconURL({ dynamic: true }) }).setTitle(titre).setDescription(desc).setTimestamp().setFooter({ text: 'Naytawa' })] });
     await message.delete().catch(() => {});
   }
 
   if (cmd === 'panel') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusée.');
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const type = args[0]?.toLowerCase();
     if (type === 'reglement') await sendPanelReglement(message.guild);
     else if (type === 'roles') await sendPanelRoles(message.guild);
     else if (type === 'tickets') await sendPanelTickets(message.guild);
+    else if (type === 'prison') await sendPanelPrison(message.guild);
     else if (type === 'top') { await sendTopMessages(message.guild); await sendTopVoc(message.guild); }
     else if (type === 'partenariat') await sendPanelPartenariat(message.guild);
-    else return message.reply('Types : `reglement` `roles` `tickets` `top` `partenariat`');
-    const confirm = await message.reply('Panel envoyé !');
+    else return message.reply('Types : `reglement` `roles` `tickets` `prison` `top` `partenariat`');
+    const confirm = await message.reply('Panel envoye !');
     setTimeout(() => confirm.delete().catch(() => {}), 3000);
     await message.delete().catch(() => {});
   }
@@ -633,20 +622,21 @@ client.on('messageCreate', async message => {
   if (cmd === 'help') {
     const embed = new EmbedBuilder()
       .setColor(COLOR)
-      .setAuthor({ name: 'Naytawa Bot — Commandes', iconURL: client.user.displayAvatarURL() })
+      .setAuthor({ name: 'Naytawa Bot - Commandes', iconURL: client.user.displayAvatarURL() })
       .addFields(
-        { name: 'Libre (tout le monde)', value: '-naytawa, -avatar, -profil, -love, -invites, -topinvites, -ping' },
-        { name: 'Midperm', value: '-warn, -unwarn, -warns, -mute, -unmute' },
-        { name: 'Wperm', value: '-kick, -wl, -unwl, -wllist + midperm' },
-        { name: 'Admin uniquement', value: '-ban, -clear, -censure, -backup, -test, -antispam, -wperm, -unwperm, -wpermlist, -midperm, -unmidperm, -midpermlist, -panel, -make panel' },
+        { name: 'Tout le monde', value: '-naytawa | -avatar | -profil | -love | -invites | -topinvites | -ping' },
+        { name: 'Midperm', value: '-warn | -unwarn | -warns | -mute | -unmute' },
+        { name: 'Wperm', value: '-kick | -wl | -unwl | -wllist + midperm' },
+        { name: 'Admin', value: '-ban | -clear | -censure | -antispam | -backup | -test\n-wperm | -unwperm | -wpermlist\n-midperm | -unmidperm | -midpermlist\n-panel | -make panel' },
       )
-      .setFooter({ text: `Préfixe : ${PREFIX}` })
+      .setFooter({ text: `Prefixe : ${PREFIX}` })
       .setTimestamp();
     await message.reply({ embeds: [embed] });
   }
 });
 
 // ══ PANELS ══
+
 async function sendPanelReglement(guild) {
   try {
     const salon = guild.channels.cache.get(IDS.SALON_REGLEMENT);
@@ -655,6 +645,7 @@ async function sendPanelReglement(guild) {
       .setColor(COLOR)
       .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Reglement du serveur')
+      .setImage(GIF.REGLEMENT)
       .setDescription([
         '> Bienvenue ! Merci de lire et respecter ces regles.',
         '',
@@ -674,7 +665,6 @@ async function sendPanelReglement(guild) {
         '',
         '*En restant sur ce serveur, tu acceptes ces regles.*',
       ].join('\n'))
-      .setImage(GIF.REGLEMENT)
       .setFooter({ text: 'Naytawa' })] });
   } catch (e) { console.error('Panel reglement:', e.message); }
 }
@@ -696,6 +686,7 @@ async function sendPanelRoles(guild) {
       .setColor(COLOR)
       .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Notifications')
+      .setImage(GIF.ROLES)
       .setDescription([
         '> Choisis les notifications que tu souhaites recevoir.',
         '> Selectionne et reselectionne pour desactiver.',
@@ -705,35 +696,37 @@ async function sendPanelRoles(guild) {
         'Animation - Evenements et animations',
         'Giveaway - Concours et cadeaux',
       ].join('\n'))
-      .setImage(GIF.ROLES)
       .setFooter({ text: 'Naytawa' })], components: [new ActionRowBuilder().addComponents(menu)] });
   } catch (e) { console.error('Panel roles:', e.message); }
 }
 
 async function sendPanelTickets(guild) {
   try {
+    // REGLEMENT TICKETS (salon 1505541456234807316)
     const salonRegles = guild.channels.cache.get(IDS.SALON_TICKET_REGLES);
     if (salonRegles) {
       await salonRegles.send({ embeds: [new EmbedBuilder()
         .setColor(COLOR)
         .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
-        .setTitle('Prison')
-        .setDescription([
-          '> Salut a toi, tu as atterri ici car tu as enfreint les regles du serveur.',
-          '',
-          "Ta sanction a ete jugee suffisamment grave pour necessiter un passage en prison.",
-          '',
-          'Pour en sortir, une mission t\'attend.',
-          'Un membre de la gestion prison va te contacter et t\'expliquer ce que tu dois faire.',
-          'Sois patient, cooperatif et respectueux — c\'est ta seule chance de t\'en sortir.',
-          '',
-          "Si tu tentes de contourner ou d'ignorer la procedure, ta sanction sera alourdie.",
-          '',
-          '*Bonne chance.*',
-        ].join('\n'))
+        .setTitle('Regles des tickets')
         .setImage(GIF.TICKET_REGLES)
+        .setDescription([
+          '> Avant d\'ouvrir un ticket, lis ces regles.',
+          '',
+          '01 - Pas de faux tickets ou trolls',
+          '02 - Pas d\'insultes envers le staff',
+          '03 - Un seul ticket par probleme',
+          '04 - Sois poli et respectueux',
+          '05 - Explique clairement ta situation',
+          '',
+          `Pour creer un ticket : <#${IDS.SALON_TICKET_PANEL}>`,
+          '',
+          '*Tout abus entraine une sanction.*',
+        ].join('\n'))
         .setFooter({ text: 'Naytawa' })] });
     }
+
+    // PANEL CREATION TICKET (salon 1505541456419618856)
     const salonPanel = guild.channels.cache.get(IDS.SALON_TICKET_PANEL);
     if (salonPanel) {
       const menu = new StringSelectMenuBuilder()
@@ -749,6 +742,7 @@ async function sendPanelTickets(guild) {
         .setColor(COLOR)
         .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
         .setTitle('Ouvrir un ticket')
+        .setImage(GIF.TICKET_PANEL)
         .setDescription([
           '> Choisis la categorie correspondant a ta demande.',
           '> Un membre du staff te repondra rapidement.',
@@ -758,10 +752,34 @@ async function sendPanelTickets(guild) {
           'Staff - Candidature moderateur',
           'Partenariat - Demande de partenariat',
         ].join('\n'))
-        .setImage(GIF.TICKET_PANEL)
         .setFooter({ text: 'Naytawa' })], components: [new ActionRowBuilder().addComponents(menu)] });
     }
   } catch (e) { console.error('Panel tickets:', e.message); }
+}
+
+async function sendPanelPrison(guild) {
+  try {
+    const salon = guild.channels.cache.get(IDS.SALON_PRISON);
+    if (!salon) return;
+    await salon.send({ embeds: [new EmbedBuilder()
+      .setColor('#ed4245')
+      .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
+      .setTitle('Bienvenue en prison')
+      .setDescription([
+        '> Salut a toi, tu as atterri ici parce que tu as enfreint les regles du serveur.',
+        '',
+        'Ta sanction a ete jugee suffisamment grave pour necessitera un passage en prison.',
+        '',
+        'Pour en sortir, une mission t\'attend.',
+        'Un membre de la gestion prison va te contacter et t\'expliquer ce que tu dois faire.',
+        'Sois patient, cooperatif et respectueux c\'est ta seule chance de t\'en sortir.',
+        '',
+        'Si tu tentes de contourner ou d\'ignorer la procedure, ta sanction sera alourdie.',
+        '',
+        '*Bonne chance.*',
+      ].join('\n'))
+      .setFooter({ text: 'Naytawa' })] });
+  } catch (e) { console.error('Panel prison:', e.message); }
 }
 
 async function sendPanelPartenariat(guild) {
@@ -772,6 +790,7 @@ async function sendPanelPartenariat(guild) {
       .setColor(COLOR)
       .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Partenariat')
+      .setImage(GIF.PARTENARIAT)
       .setDescription([
         '> Tu souhaites devenir partenaire de Naytawa ?',
         '',
@@ -782,7 +801,6 @@ async function sendPanelPartenariat(guild) {
         '',
         `Ouvre un ticket dans <#${IDS.SALON_TICKET_PANEL}>`,
       ].join('\n'))
-      .setImage(GIF.PARTENARIAT)
       .setFooter({ text: 'Naytawa' })] });
   } catch (e) { console.error('Panel partenariat:', e.message); }
 }
@@ -793,13 +811,12 @@ async function updateTopMessages(guild) {
   try {
     await guild.members.fetch();
     const sorted = [...messageCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-    const roleId = IDS.ROLE_TOP3_MSG;
-    const role = guild.roles.cache.get(roleId);
+    const role = guild.roles.cache.get(IDS.ROLE_TOP3_MSG);
     if (role) {
       for (const [, member] of guild.members.cache) {
         const inTop = sorted.find(e => e[0] === member.id);
-        if (member.roles.cache.has(roleId) && !inTop) await member.roles.remove(role).catch(() => {});
-        if (!member.roles.cache.has(roleId) && inTop) await member.roles.add(role).catch(() => {});
+        if (member.roles.cache.has(IDS.ROLE_TOP3_MSG) && !inTop) await member.roles.remove(role).catch(() => {});
+        if (!member.roles.cache.has(IDS.ROLE_TOP3_MSG) && inTop) await member.roles.add(role).catch(() => {});
       }
     }
     await sendTopMessages(guild);
@@ -816,8 +833,8 @@ async function sendTopMessages(guild) {
       .setColor(COLOR)
       .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Top 10 Messages')
-      .setDescription(lines.length ? lines.join('\n') : 'Aucune donnee.')
       .setImage(GIF.TOP)
+      .setDescription(lines.length ? lines.join('\n') : 'Aucune donnee.')
       .setTimestamp()
       .setFooter({ text: 'Naytawa' });
     const msgs = await salon.messages.fetch({ limit: 20 });
@@ -837,13 +854,12 @@ async function updateTopVoc() {
       vocJoin.set(userId, Date.now());
     });
     const sorted = [...vocTime.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-    const roleId = IDS.ROLE_TOP3_VOC;
-    const role = guild.roles.cache.get(roleId);
+    const role = guild.roles.cache.get(IDS.ROLE_TOP3_VOC);
     if (role) {
       for (const [, member] of guild.members.cache) {
         const inTop = sorted.find(e => e[0] === member.id);
-        if (member.roles.cache.has(roleId) && !inTop) await member.roles.remove(role).catch(() => {});
-        if (!member.roles.cache.has(roleId) && inTop) await member.roles.add(role).catch(() => {});
+        if (member.roles.cache.has(IDS.ROLE_TOP3_VOC) && !inTop) await member.roles.remove(role).catch(() => {});
+        if (!member.roles.cache.has(IDS.ROLE_TOP3_VOC) && inTop) await member.roles.add(role).catch(() => {});
       }
     }
     await sendTopVoc(guild);
@@ -864,8 +880,8 @@ async function sendTopVoc(guild) {
       .setColor(COLOR)
       .setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) })
       .setTitle('Top 10 Vocal')
-      .setDescription(lines.length ? lines.join('\n') : 'Aucune donnee.')
       .setImage(GIF.TOP)
+      .setDescription(lines.length ? lines.join('\n') : 'Aucune donnee.')
       .setTimestamp()
       .setFooter({ text: 'Naytawa' });
     const msgs = await salon.messages.fetch({ limit: 20 });
@@ -927,7 +943,6 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isStringSelectMenu()) {
 
-      // Notifications
       if (interaction.customId === 'notif_select') {
         const notifMap = { notif_partner: IDS.ROLE_NOTIF_PARTNER, notif_sondage: IDS.ROLE_NOTIF_SONDAGE, notif_anim: IDS.ROLE_NOTIF_ANIM, notif_giveaway: IDS.ROLE_NOTIF_GIVEAWAY };
         const roleId = notifMap[interaction.values[0]];
@@ -937,7 +952,6 @@ client.on('interactionCreate', async interaction => {
         else { await member.roles.add(role); return interaction.reply({ content: `Notification ${role.name} activee !`, ephemeral: true }); }
       }
 
-      // Tickets
       if (interaction.customId === 'ticket_select') {
         const typeMap = { ticket_question: 'Question', ticket_abus: 'Abus / Probleme', ticket_modo: 'Devenir Moderateur', ticket_partner: 'Partenariat' };
         const type = typeMap[interaction.values[0]];
@@ -965,36 +979,31 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
-      // Profil
       if (interaction.customId.startsWith('profil_')) {
         const targetId = interaction.customId.split('_')[1];
         const target = await guild.members.fetch(targetId).catch(() => null);
         if (!target) return interaction.reply({ content: 'Membre introuvable.', ephemeral: true });
         const val = interaction.values[0];
         let embed;
-
         if (val === 'arrivee') {
-          embed = new EmbedBuilder().setColor(COLOR).setTitle(`Arrivee de ${target.displayName}`)
-            .setThumbnail(target.user.displayAvatarURL({ dynamic: true }))
+          embed = new EmbedBuilder().setColor(COLOR).setTitle(`Arrivee de ${target.displayName}`).setThumbnail(target.user.displayAvatarURL({ dynamic: true }))
             .addFields(
-              { name: 'Arrive sur le serveur', value: `<t:${Math.floor(target.joinedTimestamp/1000)}:F>\n(<t:${Math.floor(target.joinedTimestamp/1000)}:R>)`, inline: true },
-              { name: 'Compte cree le', value: `<t:${Math.floor(target.user.createdTimestamp/1000)}:F>\n(<t:${Math.floor(target.user.createdTimestamp/1000)}:R>)`, inline: true },
+              { name: 'Arrive sur le serveur', value: `<t:${Math.floor(target.joinedTimestamp/1000)}:F> (<t:${Math.floor(target.joinedTimestamp/1000)}:R>)`, inline: false },
+              { name: 'Compte cree le', value: `<t:${Math.floor(target.user.createdTimestamp/1000)}:F> (<t:${Math.floor(target.user.createdTimestamp/1000)}:R>)`, inline: false },
             ).setTimestamp();
         }
         if (val === 'avatar') {
           const user = await target.user.fetch();
           embed = new EmbedBuilder().setColor(COLOR).setTitle(`Photo de profil de ${target.displayName}`).setImage(target.user.displayAvatarURL({ dynamic: true, size: 1024 })).setTimestamp();
-          if (user.bannerURL()) embed.setFields({ name: 'Banniere', value: `[Voir](${user.bannerURL({ size: 1024 })})` });
+          if (user.bannerURL()) embed.addFields({ name: 'Banniere', value: `[Voir](${user.bannerURL({ size: 1024 })})` });
         }
         if (val === 'stats') {
           const msgs = messageCount.get(target.id) || 0;
           const voc = vocTime.get(target.id) || 0;
           const h = Math.floor(voc / 3600000);
           const m2 = Math.floor((voc % 3600000) / 60000);
-          const sortedMsg = [...messageCount.entries()].sort((a, b) => b[1] - a[1]);
-          const posMsg = sortedMsg.findIndex(e => e[0] === target.id) + 1;
-          const sortedVoc = [...vocTime.entries()].sort((a, b) => b[1] - a[1]);
-          const posVoc = sortedVoc.findIndex(e => e[0] === target.id) + 1;
+          const posMsg = [...messageCount.entries()].sort((a, b) => b[1] - a[1]).findIndex(e => e[0] === target.id) + 1;
+          const posVoc = [...vocTime.entries()].sort((a, b) => b[1] - a[1]).findIndex(e => e[0] === target.id) + 1;
           embed = new EmbedBuilder().setColor(COLOR).setTitle(`Stats de ${target.displayName}`)
             .addFields(
               { name: 'Messages envoyes', value: `${msgs.toLocaleString()} messages\nClassement : #${posMsg || '?'}`, inline: true },
@@ -1003,17 +1012,16 @@ client.on('interactionCreate', async interaction => {
         }
         if (val === 'roles') {
           const hist = rolesHistory.get(target.id) || [];
-          const current = target.roles.cache.filter(r => r.id !== guild.id).map(r => r.toString()).join(', ') || 'Aucun';
           embed = new EmbedBuilder().setColor(COLOR).setTitle(`Roles de ${target.displayName}`)
             .addFields(
-              { name: 'Roles actuels', value: current.slice(0, 1000) },
-              { name: 'Derniers changements', value: hist.length ? hist.slice(0, 10).map((h, i) => `${i+1}. ${h.type === 'ajouté' ? '+' : '-'} ${h.name} — ${h.date}`).join('\n') : 'Aucun historique' },
+              { name: 'Roles actuels', value: target.roles.cache.filter(r => r.id !== guild.id).map(r => r.toString()).join(', ').slice(0, 1000) || 'Aucun' },
+              { name: 'Derniers changements', value: hist.length ? hist.slice(0, 10).map((h, i) => `${i+1}. ${h.type === 'ajoute' ? '+' : '-'} ${h.name} - ${h.date}`).join('\n') : 'Aucun historique' },
             ).setTimestamp();
         }
         if (val === 'warns') {
           const w = warns.get(target.id) || [];
           embed = new EmbedBuilder().setColor(COLOR).setTitle(`Avertissements de ${target.displayName}`)
-            .setDescription(w.length ? w.slice(-10).map((x, i) => `${i+1}. ${x.raison || x.type} — ${x.date} par ${x.by || 'Auto'}`).join('\n') : 'Aucun avertissement.')
+            .setDescription(w.length ? w.slice(-10).map((x, i) => `${i+1}. ${x.raison || x.type} - ${x.date} par ${x.by || 'Auto'}`).join('\n') : 'Aucun avertissement.')
             .setFooter({ text: `Total : ${w.length} warn(s)` }).setTimestamp();
         }
         if (embed) await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -1040,8 +1048,7 @@ client.on('interactionCreate', async interaction => {
       }
       if (interaction.customId === 'plainte_ouvrir') {
         const modal = new ModalBuilder().setCustomId('plainte_modal').setTitle('Plainte anonyme');
-        const input = new TextInputBuilder().setCustomId('plainte_texte').setLabel('Decris ta plainte').setStyle(TextInputStyle.Paragraph).setRequired(true).setMinLength(20).setMaxLength(1000).setPlaceholder('Explique la situation...');
-        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('plainte_texte').setLabel('Decris ta plainte').setStyle(TextInputStyle.Paragraph).setRequired(true).setMinLength(20).setMaxLength(1000).setPlaceholder('Explique la situation...')));
         await interaction.showModal(modal);
         return;
       }
