@@ -37,7 +37,7 @@ const IDS = {
   SALON_PRISON:        '1505541512971419781',
   SALON_TICKET_REGLES: '1505541456234807316',
   SALON_TICKET_PANEL:  '1505541456419618856',
-  SALON_AUTO_REACT:    '1508478107621920869',
+  SALON_AUTO_REACT:    '1505541372436943101',
   SALON_SELFIE:        '1507460304144171171',
   SALON_PARTENARIAT:   '1506232546252423291',
   STAT_EN_LIGNE:       '1505647390944792616',
@@ -73,8 +73,6 @@ const GIF = {
   PARTENARIAT:  'https://cdn.discordapp.com/attachments/1505541381198975036/1506232948930908170/1a13c8300696a51f0f7e45d726cce0b3_1.gif',
 };
 
-const VIDEO_LOVE = 'https://media.discordapp.net/attachments/1462161276187836487/1506763751502778449/fan2javel_TikTokDownloader.com_71fe3.mp4';
-
 // ══ DONNÉES ══
 const messageCount   = new Map();
 const vocTime        = new Map();
@@ -88,12 +86,15 @@ const antiSpamExclus = new Set();
 const spamTracker    = new Map();
 const giveaways      = new Map();
 const autoreponseCD  = new Map();
-const ownerSet       = new Set(); // -owner liste invisible
-
-// Voc temporaires : channelId -> { ownerId, timeout }
+const ownerSet       = new Set();
 const tempVocs       = new Map();
-// userId -> channelId (pour limiter à 1 voc par personne)
 const userTempVoc    = new Map();
+
+// Stalk data — on track par serveur pour les multi-serveurs
+// msgCountPerGuild[userId][guildId] = count
+const msgCountPerGuild = new Map();
+// vocTimePerGuild[userId][guildId] = ms
+const vocTimePerGuild  = new Map();
 
 let censureActif     = true;
 let botPingCooldown  = null;
@@ -102,23 +103,14 @@ let VOC_GENERATOR_CHANNEL_ID = null;
 let VOC_CATEGORY_ID  = null;
 
 // ══ PERMISSIONS ══
-function isRealOwner(member) {
-  return member.id === OWNER_ID;
-}
-function isOwner(member) {
-  return isRealOwner(member) || ownerSet.has(member.id);
-}
+function isRealOwner(member) { return member.id === OWNER_ID; }
+function isOwner(member) { return isRealOwner(member) || ownerSet.has(member.id); }
 function isAdmin(member) {
   return isOwner(member) ||
          member.permissions.has(PermissionFlagsBits.Administrator) ||
          member.permissions.has(PermissionFlagsBits.ManageGuild);
 }
-function canWL(member) {
-  return isAdmin(member) || member.roles.cache.has(IDS.ROLE_WL_PERM);
-}
-function canWarn(member) {
-  return isAdmin(member) || member.roles.cache.has(IDS.ROLE_WL_PERM);
-}
+function canWL(member) { return isAdmin(member) || member.roles.cache.has(IDS.ROLE_WL_PERM); }
 
 // ══ ANTI-INSULTES ══
 const MOTS_INTERDITS = [
@@ -164,6 +156,395 @@ function peutRepondre(userId, type) {
   return true;
 }
 
+// ══ HELPERS STALK ══
+function formatDuration(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function formatDate(ts) {
+  return `<t:${Math.floor(ts / 1000)}:F> (<t:${Math.floor(ts / 1000)}:R>)`;
+}
+
+function getDiscordBadges(flags) {
+  const badgeMap = {
+    Staff:                 '👮 Staff Discord',
+    Partner:               '🤝 Partenaire',
+    Hypesquad:             '🏠 HypeSquad Events',
+    HypeSquadOnlineHouse1: '🦅 House Bravery',
+    HypeSquadOnlineHouse2: '💛 House Brilliance',
+    HypeSquadOnlineHouse3: '💜 House Balance',
+    BugHunterLevel1:       '🐛 Bug Hunter',
+    BugHunterLevel2:       '🐛 Bug Hunter Gold',
+    ActiveDeveloper:       '👨‍💻 Dev Actif',
+    VerifiedDeveloper:     '✅ Dev Verifie',
+    PremiumEarlySupporter: '💎 Early Supporter',
+    VerifiedBot:           '🤖 Bot Verifie',
+  };
+  return (flags?.toArray() || []).map(f => badgeMap[f]).filter(Boolean);
+}
+
+function getStatusInfo(presence) {
+  if (!presence) return { status: 'offline', emoji: '⚫', activities: [] };
+  const statusEmoji = { online: '🟢', idle: '🟡', dnd: '🔴', offline: '⚫', invisible: '⚫' };
+  return {
+    status: presence.status || 'offline',
+    emoji: statusEmoji[presence.status] || '⚫',
+    activities: presence.activities || [],
+  };
+}
+
+// ══ BUILD STALK EMBED PRINCIPAL ══
+async function buildMainStalkEmbed(user, guildMember, guild) {
+  // Force fetch pour avoir les données à jour
+  const freshUser = await user.fetch({ force: true }).catch(() => user);
+
+  const presInfo  = guildMember ? getStatusInfo(guildMember.presence) : { status: 'offline', emoji: '⚫', activities: [] };
+  const badges    = getDiscordBadges(freshUser.flags);
+  const accountAge = Math.floor((Date.now() - freshUser.createdTimestamp) / 86400000);
+
+  // Activités détaillées
+  const activities     = presInfo.activities;
+  const customStatus   = activities.find(a => a.type === 4);
+  const playingGame    = activities.find(a => a.type === 0);
+  const streamingGame  = activities.find(a => a.type === 1);
+  const listeningMusic = activities.find(a => a.type === 2);
+  const watchingVideo  = activities.find(a => a.type === 3);
+  const competingGame  = activities.find(a => a.type === 5);
+
+  // Construction activité string
+  const activityLines = [];
+  if (customStatus) {
+    const emoji = customStatus.emoji ? `${customStatus.emoji.name} ` : '';
+    activityLines.push(`**Status perso :** ${emoji}${customStatus.state || customStatus.name || ''}`);
+  }
+  if (listeningMusic) {
+    if (listeningMusic.name === 'Spotify') {
+      activityLines.push(`**Spotify :** ${listeningMusic.details || '?'} — ${listeningMusic.state || '?'}\n**Album :** ${listeningMusic.assets?.largeText || '?'}`);
+    } else {
+      activityLines.push(`**Ecoute :** ${listeningMusic.name}`);
+    }
+  }
+  if (streamingGame) {
+    activityLines.push(`**🔴 En stream :** ${streamingGame.name}\n**Titre :** ${streamingGame.details || '?'}\n**URL :** ${streamingGame.url || '?'}`);
+  }
+  if (playingGame) {
+    const details  = playingGame.details ? `\n**Details :** ${playingGame.details}` : '';
+    const state    = playingGame.state ? `\n**Etat :** ${playingGame.state}` : '';
+    const since    = playingGame.timestamps?.start ? `\n**Depuis :** <t:${Math.floor(playingGame.timestamps.start.getTime()/1000)}:R>` : '';
+    activityLines.push(`**🎮 Joue a :** ${playingGame.name}${details}${state}${since}`);
+  }
+  if (watchingVideo) {
+    activityLines.push(`**👀 Regarde :** ${watchingVideo.name}${watchingVideo.details ? ` — ${watchingVideo.details}` : ''}`);
+  }
+  if (competingGame) {
+    activityLines.push(`**🏆 Compete dans :** ${competingGame.name}`);
+  }
+
+  // Données serveur
+  let serverInfo = 'Non membre de ce serveur';
+  let vocInfo    = 'Aucune donnee';
+  let msgInfo    = 'Aucune donnee';
+  let modInfo    = 'Aucune donnee';
+  let rolesInfo  = 'Inconnu';
+
+  if (guildMember && guild) {
+    const serverAge = Math.floor((Date.now() - guildMember.joinedTimestamp) / 86400000);
+    const boostSince = guildMember.premiumSince;
+    serverInfo = [
+      `**Arrive :** ${formatDate(guildMember.joinedTimestamp)}`,
+      `**Anciennete :** ${serverAge} jour${serverAge>1?'s':''}`,
+      `**Surnom :** ${guildMember.nickname || 'Aucun'}`,
+      boostSince ? `**Boost depuis :** <t:${Math.floor(boostSince.getTime()/1000)}:R>` : null,
+      `**Couleur :** ${guildMember.displayHexColor}`,
+    ].filter(Boolean).join('\n');
+
+    const voc    = vocTime.get(guildMember.id) || 0;
+    const msgs   = messageCount.get(guildMember.id) || 0;
+    const inv    = inviteCount.get(guildMember.id) || 0;
+    const inVoc  = vocJoin.has(guildMember.id);
+    const vocCh  = inVoc ? guild.voiceStates.cache.get(guildMember.id)?.channel : null;
+    const posVoc = [...vocTime.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===guildMember.id)+1;
+    const posMsg = [...messageCount.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===guildMember.id)+1;
+    const posInv = [...inviteCount.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===guildMember.id)+1;
+
+    vocInfo = [
+      `**Temps total :** ${formatDuration(voc)}`,
+      `**Classement :** #${posVoc||'?'}`,
+      inVoc ? `**En ce moment :** <#${vocCh?.id}> (depuis <t:${Math.floor(vocJoin.get(guildMember.id)/1000)}:R>)` : '**En vocal :** Non',
+    ].join('\n');
+
+    msgInfo = [
+      `**Messages :** ${msgs.toLocaleString()} (#${posMsg||'?'})`,
+      `**Invitations :** ${inv} (#${posInv||'?'})`,
+    ].join('\n');
+
+    const w = warns.get(guildMember.id) || [];
+    modInfo = [
+      `**Warns :** ${w.length}`,
+      w.length > 0 ? `**Dernier :** ${w[w.length-1].raison||'N/A'} (${w[w.length-1].date||'?'})` : null,
+      (whitelistSet.has(guildMember.id) || guildMember.roles.cache.has(IDS.ROLE_WL)) ? '**Whitelist :** Oui' : '**Whitelist :** Non',
+    ].filter(Boolean).join('\n');
+
+    rolesInfo = guildMember.roles.cache
+      .filter(r => r.id !== guild.id)
+      .sort((a,b) => b.position - a.position)
+      .map(r => r.toString())
+      .slice(0, 12)
+      .join(' ') || 'Aucun';
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(guildMember?.displayHexColor !== '#000000' ? (guildMember?.displayHexColor || COLOR) : COLOR)
+    .setAuthor({ name: `Stalk — ${freshUser.tag}`, iconURL: freshUser.displayAvatarURL({ dynamic: true }) })
+    .setThumbnail(freshUser.displayAvatarURL({ dynamic: true, size: 512 }))
+    .addFields(
+      {
+        name: '👤 Compte Discord',
+        value: [
+          `**Tag :** ${freshUser.tag}`,
+          `**ID :** \`${freshUser.id}\``,
+          `**Cree :** ${formatDate(freshUser.createdTimestamp)}`,
+          `**Age :** ${accountAge} jour${accountAge>1?'s':''}`,
+          `**Bot :** ${freshUser.bot ? 'Oui' : 'Non'}`,
+          badges.length ? `**Badges :** ${badges.join(' • ')}` : null,
+        ].filter(Boolean).join('\n'),
+        inline: false,
+      },
+      {
+        name: `${presInfo.emoji} Statut & Activite`,
+        value: [
+          `**Statut :** ${presInfo.status}`,
+          ...activityLines,
+        ].join('\n') || 'Aucune activite',
+        inline: false,
+      },
+      {
+        name: '🏠 Sur ce serveur',
+        value: serverInfo,
+        inline: true,
+      },
+      {
+        name: '🎧 Vocal',
+        value: vocInfo,
+        inline: true,
+      },
+      {
+        name: '💬 Activite',
+        value: msgInfo,
+        inline: true,
+      },
+      {
+        name: '🛡️ Moderation',
+        value: modInfo,
+        inline: true,
+      },
+      {
+        name: `🎭 Roles (${guildMember ? guildMember.roles.cache.size - 1 : 0})`,
+        value: rolesInfo.slice(0, 800),
+        inline: false,
+      },
+    )
+    .setTimestamp()
+    .setFooter({ text: `Naytawa Stalk System • ID: ${freshUser.id}` });
+
+  const bannerUrl = freshUser.bannerURL?.({ size: 1024 });
+  if (bannerUrl) embed.setImage(bannerUrl);
+
+  return embed;
+}
+
+// ══ BUILD STALK MULTI-SERVEUR ══
+async function buildMultiServerEmbed(userId) {
+  const lines = [];
+  let totalMsgAll = 0;
+  let totalVocAll = 0;
+
+  for (const [, guild] of client.guilds.cache) {
+    const member = guild.members.cache.get(userId);
+    if (!member) continue;
+
+    const guildMsgs = messageCount.get(userId) || 0; // simplifié — même bot même serveur
+    const guildVoc  = vocTime.get(userId) || 0;
+    const inVoc     = vocJoin.has(userId) && guild.voiceStates.cache.has(userId);
+    const vocCh     = inVoc ? guild.voiceStates.cache.get(userId)?.channel : null;
+
+    totalMsgAll += guildMsgs;
+    totalVocAll += guildVoc;
+
+    const memberCount = guild.memberCount;
+    const serverAge   = Math.floor((Date.now() - member.joinedTimestamp) / 86400000);
+    const topRoles    = member.roles.cache
+      .filter(r => r.id !== guild.id && r.name !== '@everyone')
+      .sort((a,b) => b.position - a.position)
+      .first(3)
+      .map(r => `\`${r.name}\``)
+      .join(', ') || 'Aucun role notable';
+
+    lines.push([
+      `**${guild.name}** (${memberCount} membres)`,
+      `  Arrive : <t:${Math.floor(member.joinedTimestamp/1000)}:R> (${serverAge}j)`,
+      `  Roles : ${topRoles}`,
+      inVoc ? `  **En vocal : <#${vocCh?.id}>**` : null,
+      `  Messages : ${guildMsgs.toLocaleString()} | Vocal : ${formatDuration(guildVoc)}`,
+    ].filter(Boolean).join('\n'));
+  }
+
+  if (lines.length === 0) {
+    return new EmbedBuilder().setColor(COLOR).setTitle('Serveurs communs').setDescription('Aucun serveur commun detecte.').setTimestamp();
+  }
+
+  // Découpe si trop long
+  const desc = lines.join('\n\n').slice(0, 3900);
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`Serveurs en commun (${lines.length})`)
+    .setDescription(desc)
+    .addFields(
+      { name: 'Total messages (tous serveurs)', value: totalMsgAll.toLocaleString(), inline: true },
+      { name: 'Total vocal (tous serveurs)', value: formatDuration(totalVocAll), inline: true },
+    )
+    .setTimestamp()
+    .setFooter({ text: 'Naytawa Stalk System' });
+}
+
+// ══ BUILD STALK VOCAL ══
+async function buildVocalEmbed(userId, guild) {
+  const voc   = vocTime.get(userId) || 0;
+  const inVoc = vocJoin.has(userId);
+  const posVoc = [...vocTime.entries()].sort((a,b) => b[1]-a[1]).findIndex(e => e[0]===userId) + 1;
+
+  // Historique sessions (approximatif basé sur les données trackées)
+  const currentSession = inVoc ? (Date.now() - vocJoin.get(userId)) : 0;
+  const vocCh = inVoc ? guild?.voiceStates.cache.get(userId)?.channel : null;
+  const members = vocCh ? [...vocCh.members.values()].filter(m => m.id !== userId).map(m => m.displayName).slice(0, 5) : [];
+
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle('Données vocales completes')
+    .addFields(
+      { name: 'Temps total', value: formatDuration(voc), inline: true },
+      { name: 'Session en cours', value: currentSession > 0 ? formatDuration(currentSession) : 'Pas en vocal', inline: true },
+      { name: 'Classement vocal', value: `#${posVoc || '?'}`, inline: true },
+      { name: 'Salon actuel', value: inVoc && vocCh ? `<#${vocCh.id}>\n**Salon :** ${vocCh.name}\n**Capacite :** ${vocCh.userLimit > 0 ? vocCh.userLimit : 'Illimitee'}` : 'Pas en vocal', inline: false },
+      { name: 'Autres personnes dans la voc', value: members.length > 0 ? members.join(', ') : (inVoc ? 'Seul' : 'N/A'), inline: false },
+    )
+    .setTimestamp()
+    .setFooter({ text: 'Naytawa Stalk System' });
+}
+
+// ══ BUILD STALK JEUX ══
+async function buildGamesEmbed(user, guildMember) {
+  const presence   = guildMember?.presence;
+  const activities = presence?.activities || [];
+
+  if (activities.length === 0) {
+    return new EmbedBuilder().setColor(COLOR).setTitle('Activites').setDescription('Aucune activite detectee actuellement.').setTimestamp();
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`Activites de ${user.tag}`)
+    .setTimestamp()
+    .setFooter({ text: 'Naytawa Stalk System' });
+
+  for (const activity of activities) {
+    const typeNames = { 0: '🎮 Jeu', 1: '🔴 Stream', 2: '🎵 Musique', 3: '👀 Regarde', 4: '💬 Status', 5: '🏆 Compete' };
+    const typeName = typeNames[activity.type] || 'Activite';
+
+    const lines = [
+      `**Type :** ${typeName}`,
+      `**Nom :** ${activity.name}`,
+      activity.details ? `**Details :** ${activity.details}` : null,
+      activity.state ? `**Etat :** ${activity.state}` : null,
+      activity.url ? `**URL :** ${activity.url}` : null,
+      activity.timestamps?.start ? `**Depuis :** <t:${Math.floor(activity.timestamps.start.getTime()/1000)}:R>` : null,
+      activity.timestamps?.end ? `**Jusqu'a :** <t:${Math.floor(activity.timestamps.end.getTime()/1000)}:R>` : null,
+      activity.assets?.largeText ? `**Info :** ${activity.assets.largeText}` : null,
+      activity.assets?.smallText ? `**Detail :** ${activity.assets.smallText}` : null,
+    ].filter(Boolean).join('\n');
+
+    embed.addFields({ name: `${typeName} — ${activity.name}`, value: lines, inline: false });
+  }
+
+  return embed;
+}
+
+// ══ BUILD STALK COMPTE ══
+async function buildAccountEmbed(user, guildMember) {
+  const freshUser = await user.fetch({ force: true }).catch(() => user);
+  const badges    = getDiscordBadges(freshUser.flags);
+  const accountAge = Math.floor((Date.now() - freshUser.createdTimestamp) / 86400000);
+
+  // Nitro — détection via premium type
+  let nitroInfo = 'Inconnu';
+  try {
+    if (guildMember?.premiumSince) nitroInfo = `Booste depuis <t:${Math.floor(guildMember.premiumSince.getTime()/1000)}:R>`;
+    else nitroInfo = 'Non detecte (ou pas de boost actif)';
+  } catch {}
+
+  const avatarHistory = freshUser.displayAvatarURL({ dynamic: true, size: 1024 });
+  const bannerUrl     = freshUser.bannerURL?.({ size: 1024 });
+  const accentColor   = freshUser.accentColor ? `#${freshUser.accentColor.toString(16).padStart(6, '0')}` : null;
+
+  const embed = new EmbedBuilder()
+    .setColor(accentColor || COLOR)
+    .setTitle(`Compte complet — ${freshUser.tag}`)
+    .setThumbnail(avatarHistory)
+    .addFields(
+      { name: 'Identite', value: [
+        `**Tag complet :** ${freshUser.tag}`,
+        `**ID :** \`${freshUser.id}\``,
+        `**Nom affiché :** ${freshUser.globalName || freshUser.username}`,
+        `**Bot :** ${freshUser.bot ? 'Oui ✅' : 'Non ❌'}`,
+        accentColor ? `**Couleur accent :** ${accentColor}` : null,
+      ].filter(Boolean).join('\n'), inline: false },
+      { name: 'Anciennete', value: [
+        `**Compte cree :** ${formatDate(freshUser.createdTimestamp)}`,
+        `**Age du compte :** ${accountAge} jour${accountAge>1?'s':''}`,
+        guildMember ? `**Sur ce serveur :** ${formatDate(guildMember.joinedTimestamp)}` : null,
+      ].filter(Boolean).join('\n'), inline: false },
+      { name: 'Badges Discord', value: badges.length ? badges.join('\n') : 'Aucun badge', inline: true },
+      { name: 'Nitro / Boost', value: nitroInfo, inline: true },
+      { name: 'Avatar', value: `[Lien direct](${avatarHistory})`, inline: true },
+      bannerUrl ? { name: 'Banniere', value: `[Voir la banniere](${bannerUrl})`, inline: true } : null,
+    ).filter(f => f !== null)
+    .setTimestamp()
+    .setFooter({ text: `ID: ${freshUser.id} • Naytawa Stalk System` });
+
+  if (bannerUrl) embed.setImage(bannerUrl);
+
+  return embed;
+}
+
+// ══ BUILD STALK MODERATION ══
+async function buildModerationEmbed(userId, guild) {
+  const w      = warns.get(userId) || [];
+  const isWl   = whitelistSet.has(userId);
+  const member = guild?.members.cache.get(userId);
+  const hasWlRole = member?.roles.cache.has(IDS.ROLE_WL);
+
+  const warnLines = w.length > 0
+    ? w.map((x, i) => `**${i+1}.** ${x.raison || x.type}\n   Date : ${x.date || '?'} | Par : ${x.by || 'Auto'} | Duree : ${x.duree ? x.duree + 'min' : 'N/A'}`)
+    : ['Aucun avertissement'];
+
+  return new EmbedBuilder()
+    .setColor(w.length > 0 ? '#ed4245' : '#3ba55c')
+    .setTitle('Dossier de moderation')
+    .addFields(
+      { name: `Avertissements (${w.length})`, value: warnLines.join('\n\n').slice(0, 1000) || 'Aucun', inline: false },
+      { name: 'Whitelist censure', value: (isWl || hasWlRole) ? '✅ Oui — Exempte de censure' : '❌ Non', inline: true },
+      { name: 'Mute actuel', value: member?.communicationDisabledUntil ? `Jusqu'a <t:${Math.floor(member.communicationDisabledUntil.getTime()/1000)}:R>` : 'Non', inline: true },
+    )
+    .setTimestamp()
+    .setFooter({ text: 'Naytawa Stalk System' });
+}
+
 // ══ READY ══
 client.once('ready', async () => {
   console.log(`Bot connecte : ${client.user.tag}`);
@@ -200,8 +581,7 @@ async function sendStats() {
     if (chV) await chV.setName(`voc : ${voc}`).catch(() => {});
     const salon = guild.channels.cache.get(IDS.SALON_STATS);
     if (!salon) return;
-    const embed = new EmbedBuilder()
-      .setColor(COLOR).setTitle('Statistiques du serveur')
+    const embed = new EmbedBuilder().setColor(COLOR).setTitle('Statistiques du serveur')
       .setDescription(`Membres : ${total}\nEn ligne : ${online}\nEn vocal : ${voc}\nBoosts : ${boosts}`)
       .setThumbnail(guild.iconURL({ dynamic: true })).setTimestamp().setFooter({ text: 'Naytawa' });
     await salon.send({ embeds: [embed] });
@@ -299,7 +679,7 @@ async function checkGiveaways() {
 }
 
 async function finishGiveaway(gw) {
-  const guild   = client.guilds.cache.get(gw.guildId); if (!guild) return;
+  const guild = client.guilds.cache.get(gw.guildId); if (!guild) return;
   const channel = guild.channels.cache.get(gw.channelId); if (!channel) return;
   const msg = await channel.messages.fetch(gw.messageId).catch(() => null);
   const eligibles = [];
@@ -339,138 +719,9 @@ function parseDureeLabel(ms) {
 function parseConditions(str) {
   const cond = { vocMin:0, msgMin:0, invMin:0 };
   if (!str) return cond;
-  const v = str.match(/voc:(\d+)h?/i); const m = str.match(/msg:(\d+)/i); const i = str.match(/inv:(\d+)/i);
+  const v=str.match(/voc:(\d+)h?/i); const m=str.match(/msg:(\d+)/i); const i=str.match(/inv:(\d+)/i);
   if (v) cond.vocMin=parseInt(v[1]); if (m) cond.msgMin=parseInt(m[1]); if (i) cond.invMin=parseInt(i[1]);
   return cond;
-}
-
-// ══ STALK — Système complet ══
-async function buildStalkEmbed(target, guild) {
-  const user = await target.user.fetch({ force: true }).catch(() => target.user);
-
-  // Données de base
-  const msgs       = messageCount.get(target.id) || 0;
-  const voc        = vocTime.get(target.id) || 0;
-  const h          = Math.floor(voc/3600000);
-  const mn         = Math.floor((voc%3600000)/60000);
-  const inv        = inviteCount.get(target.id) || 0;
-  const w          = warns.get(target.id) || [];
-  const inVoc      = vocJoin.has(target.id);
-  const vocChannel = inVoc ? guild.voiceStates.cache.get(target.id)?.channel : null;
-  const hist       = rolesHistory.get(target.id) || [];
-
-  // Classements
-  const posMsg = [...messageCount.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===target.id)+1;
-  const posVoc = [...vocTime.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===target.id)+1;
-  const posInv = [...inviteCount.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===target.id)+1;
-
-  // Badges Discord
-  const flags = user.flags?.toArray() || [];
-  const badgeMap = {
-    Staff:                    '👮 Staff Discord',
-    Partner:                  '🤝 Partenaire Discord',
-    Hypesquad:                '🏠 HypeSquad Events',
-    HypeSquadOnlineHouse1:    '🦅 Bravery',
-    HypeSquadOnlineHouse2:    '💛 Brilliance',
-    HypeSquadOnlineHouse3:    '💜 Balance',
-    BugHunterLevel1:          '🐛 Bug Hunter',
-    BugHunterLevel2:          '🐛 Bug Hunter Gold',
-    ActiveDeveloper:          '👨‍💻 Developpeur Actif',
-    VerifiedDeveloper:        '🤖 Dev Verifie',
-    PremiumEarlySupporter:    '💎 Early Supporter',
-  };
-  const badges = flags.map(f => badgeMap[f]).filter(Boolean);
-
-  // Boosting
-  const boostSince = target.premiumSince;
-
-  // Statut/activite
-  const presence = target.presence;
-  const status   = presence?.status || 'offline';
-  const statusEmoji = { online: '🟢', idle: '🟡', dnd: '🔴', offline: '⚫' };
-  const activities = presence?.activities || [];
-  const playingGame = activities.find(a => a.type === 0);
-  const listeningSpotify = activities.find(a => a.type === 2 && a.name === 'Spotify');
-  const customStatus = activities.find(a => a.type === 4);
-  const streaming = activities.find(a => a.type === 1);
-
-  // Compte ancienneté
-  const accountAge = Math.floor((Date.now() - user.createdTimestamp) / 86400000);
-  const serverAge  = Math.floor((Date.now() - target.joinedTimestamp) / 86400000);
-
-  // Rôles importants (pas @everyone, pas top 20)
-  const roles = target.roles.cache
-    .filter(r => r.id !== guild.id)
-    .sort((a,b) => b.position - a.position)
-    .map(r => r.toString())
-    .slice(0,15)
-    .join(' ') || 'Aucun';
-
-  // Build embed principal
-  const embed = new EmbedBuilder()
-    .setColor(target.displayHexColor !== '#000000' ? target.displayHexColor : COLOR)
-    .setAuthor({ name: `Stalk — ${target.displayName}`, iconURL: user.displayAvatarURL({ dynamic: true }) })
-    .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 512 }))
-    .addFields(
-      // Infos compte
-      { name: 'Compte Discord', value: [
-        `**Tag :** ${user.tag}`,
-        `**ID :** \`${user.id}\``,
-        `**Cree le :** <t:${Math.floor(user.createdTimestamp/1000)}:F> (<t:${Math.floor(user.createdTimestamp/1000)}:R>)`,
-        `**Age du compte :** ${accountAge} jour${accountAge>1?'s':''}`,
-        `**Bot :** ${user.bot ? 'Oui' : 'Non'}`,
-        badges.length ? `**Badges :** ${badges.join(', ')}` : null,
-      ].filter(Boolean).join('\n'), inline: false },
-
-      // Infos serveur
-      { name: 'Sur le serveur', value: [
-        `**Arrive le :** <t:${Math.floor(target.joinedTimestamp/1000)}:F> (<t:${Math.floor(target.joinedTimestamp/1000)}:R>)`,
-        `**Anciennete :** ${serverAge} jour${serverAge>1?'s':''}`,
-        boostSince ? `**Boost depuis :** <t:${Math.floor(boostSince.getTime()/1000)}:R>` : null,
-        `**Surnom :** ${target.nickname || 'Aucun'}`,
-      ].filter(Boolean).join('\n'), inline: false },
-
-      // Statut
-      { name: 'Statut & Activite', value: [
-        `**Statut :** ${statusEmoji[status] || '⚫'} ${status}`,
-        customStatus ? `**Status perso :** ${customStatus.state || customStatus.name}` : null,
-        listeningSpotify ? `**Spotify :** ${listeningSpotify.details} — ${listeningSpotify.state}` : null,
-        playingGame ? `**Joue a :** ${playingGame.name}` : null,
-        streaming ? `**En stream :** ${streaming.name}` : null,
-      ].filter(Boolean).join('\n') || 'Aucune activite', inline: false },
-
-      // Vocal
-      { name: 'Vocal', value: [
-        `**Temps total :** ${h}h ${mn}m`,
-        `**Classement :** #${posVoc||'?'}`,
-        inVoc ? `**En vocal :** Oui — <#${vocChannel?.id}> (depuis <t:${Math.floor(vocJoin.get(target.id)/1000)}:R>)` : `**En vocal :** Non`,
-      ].join('\n'), inline: true },
-
-      // Messages
-      { name: 'Messages', value: [
-        `**Total :** ${msgs.toLocaleString()}`,
-        `**Classement :** #${posMsg||'?'}`,
-        `**Invitations :** ${inv} (#${posInv||'?'})`,
-      ].join('\n'), inline: true },
-
-      // Moderation
-      { name: 'Moderation', value: [
-        `**Warns :** ${w.length}`,
-        w.length > 0 ? `**Dernier warn :** ${w[w.length-1].raison||'N/A'} (${w[w.length-1].date||'?'})` : null,
-        whitelistSet.has(target.id) || target.roles.cache.has(IDS.ROLE_WL) ? '**Whitelist censure :** Oui' : '**Whitelist censure :** Non',
-      ].filter(Boolean).join('\n'), inline: false },
-
-      // Roles
-      { name: `Roles (${target.roles.cache.size - 1})`, value: roles.slice(0,800), inline: false },
-    )
-    .setTimestamp()
-    .setFooter({ text: `Naytawa • Stalk • ID: ${user.id}` });
-
-  // Banniere si disponible
-  const bannerUrl = user.bannerURL({ size: 1024 });
-  if (bannerUrl) embed.setImage(bannerUrl);
-
-  return embed;
 }
 
 // ══ BIENVENUE ══
@@ -491,7 +742,7 @@ client.on('guildMemberAdd', async member => {
       inviteTracker.set(member.guild.id, new Map(newInvites.map(i => [i.code, { uses: i.uses||0, inviterId: i.inviter?.id }])));
     }
     if (inviterId && inviterId !== member.id) {
-      const cnt = (inviteCount.get(inviterId)||0) + 1;
+      const cnt = (inviteCount.get(inviterId)||0)+1;
       inviteCount.set(inviterId, cnt);
       await updateTopInvites(member.guild);
       await salon.send(`Bienvenue ${member}, amuse-toi bien avec nous !\nMerci <@${inviterId}> d'avoir invite ${member} ! (ca te fait ${cnt} invitation${cnt>1?'s':''})`);
@@ -535,7 +786,6 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 client.on('voiceStateUpdate', async (oldState, newState) => {
   const guild = newState.guild || oldState.guild;
   const member = newState.member || oldState.member;
-
   try {
     const logCh = guild.channels.cache.get(IDS.LOG_VOC);
     if (member) {
@@ -559,23 +809,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       if (oldState.serverMute && !newState.serverMute && logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Demute vocal').setDescription(`Membre : ${member.user.tag}`).setTimestamp()] });
     }
 
-    // Générateur voc temporaire
     if (VOC_GENERATOR_CHANNEL_ID && newState.channelId === VOC_GENERATOR_CHANNEL_ID && member) {
-      // Vérifie si l'utilisateur a déjà une voc
       const existingVocId = userTempVoc.get(member.id);
       if (existingVocId && guild.channels.cache.has(existingVocId)) {
-        // Renvoie l'utilisateur dans sa voc existante
         await member.voice.setChannel(existingVocId).catch(() => {});
-        try {
-          await member.send(
-            `Tu as deja une voc en cours (<#${existingVocId}>).\n` +
-            `Tu ne peux creer qu'une seule voc a la fois.\n` +
-            `Elle sera supprimee automatiquement 10 minutes apres que tout le monde ait quitte.`
-          );
-        } catch {}
+        try { await member.send(`Tu as deja une voc en cours (<#${existingVocId}>).\nUne seule voc temporaire par personne. Elle sera supprimee 10 minutes apres que tout le monde ait quitte.`); } catch {}
         return;
       }
-
       const catId = VOC_CATEGORY_ID || guild.channels.cache.get(VOC_GENERATOR_CHANNEL_ID)?.parentId;
       const tempChannel = await guild.channels.create({
         name: `voc de ${member.displayName}`,
@@ -586,7 +826,6 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
           { id: member.id, allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] },
         ],
       }).catch(() => null);
-
       if (tempChannel) {
         await member.voice.setChannel(tempChannel).catch(() => {});
         userTempVoc.set(member.id, tempChannel.id);
@@ -594,7 +833,6 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       }
     }
 
-    // Suppression voc temporaire vide après 10 minutes
     if (oldState.channelId && tempVocs.has(oldState.channelId)) {
       const vocData = tempVocs.get(oldState.channelId);
       const channel = guild.channels.cache.get(oldState.channelId);
@@ -624,7 +862,6 @@ client.on('messageCreate', async message => {
   if (message.author.bot) return;
   const contentLower = message.content.toLowerCase();
 
-  // Mention bot
   if (
     message.mentions.has(client.user) &&
     !message.mentions.everyone &&
@@ -648,7 +885,6 @@ client.on('messageCreate', async message => {
   if (message.channel.id === IDS.SALON_AUTO_REACT) await message.react('❤️').catch(() => {});
   if (message.channel.id === IDS.SALON_SELFIE)     await message.react('🤍').catch(() => {});
 
-  // Auto reponses
   if (contentLower.includes("je t'aime pas") && peutRepondre(message.author.id, 'aimepas'))
     await message.reply('Comment tu veux j\'te dise "ti amo" si y a pas d\'amour? - timar MIEUX QU\'HIER');
   if (contentLower.includes('bot de merde') && peutRepondre(message.author.id, 'botmerde'))
@@ -702,37 +938,53 @@ client.on('messageCreate', async message => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const cmd  = args.shift().toLowerCase();
 
-  // ════════ COMMANDES ════════
-
-  // STALK — système complet
+  // ══════════════════════════════════
+  //   STALK — admin uniquement
+  // ══════════════════════════════════
   if (cmd === 'stalk') {
-    const target = message.mentions.members.first() ||
-      (args[0] ? await message.guild.members.fetch(args[0]).catch(() => null) : null) ||
-      message.member;
+    if (!isAdmin(message.member)) return message.reply('Permission refusee. (Admin uniquement)');
 
-    if (!target) return message.reply('Membre introuvable. Usage : `-stalk @user` ou `-stalk`');
+    // Cherche la cible
+    let target = message.mentions.members.first();
+    if (!target && args[0]) {
+      target = await message.guild.members.fetch(args[0]).catch(() => null);
+      // Essai par nom
+      if (!target) {
+        target = message.guild.members.cache.find(m =>
+          m.user.tag.toLowerCase().includes(args[0].toLowerCase()) ||
+          m.displayName.toLowerCase().includes(args[0].toLowerCase())
+        );
+      }
+    }
+    if (!target) target = message.member;
 
     try {
-      const embed = await buildStalkEmbed(target, message.guild);
+      const embed = await buildMainStalkEmbed(target.user, target, message.guild);
 
-      // Menu pour voir encore plus de détails
       const menu = new StringSelectMenuBuilder()
         .setCustomId(`stalk_${target.id}`)
-        .setPlaceholder('Voir plus de details')
+        .setPlaceholder('Approfondir le stalk...')
         .addOptions(
-          new StringSelectMenuOptionBuilder().setLabel('Vocal complet').setDescription('Stats vocales detaillees').setValue('voc'),
-          new StringSelectMenuOptionBuilder().setLabel('Historique warns').setDescription('Tous les avertissements').setValue('warns'),
-          new StringSelectMenuOptionBuilder().setLabel('Historique roles').setDescription('Derniers changements de roles').setValue('roles'),
-          new StringSelectMenuOptionBuilder().setLabel('Activite complete').setDescription('Messages, invitations et classements').setValue('activite'),
-          new StringSelectMenuOptionBuilder().setLabel('Banniere').setDescription('Afficher la banniere du profil').setValue('banniere'),
+          new StringSelectMenuOptionBuilder().setLabel('Vocal complet').setDescription('Salon actuel, temps exact, session en cours').setValue('voc'),
+          new StringSelectMenuOptionBuilder().setLabel('Activites et jeux').setDescription('Tous les jeux, Spotify, stream en detail').setValue('games'),
+          new StringSelectMenuOptionBuilder().setLabel('Compte complet').setDescription('Badges, couleur, banniere, nitro, avatar').setValue('account'),
+          new StringSelectMenuOptionBuilder().setLabel('Serveurs communs').setDescription('Tous les serveurs partages avec le bot').setValue('servers'),
+          new StringSelectMenuOptionBuilder().setLabel('Dossier moderation').setDescription('Warns, mute actuel, whitelist').setValue('moderation'),
+          new StringSelectMenuOptionBuilder().setLabel('Historique roles').setDescription('Derniers roles ajoutes et retires').setValue('roles'),
+          new StringSelectMenuOptionBuilder().setLabel('Stats completes').setDescription('Messages, invitations, classements').setValue('stats'),
         );
 
       await message.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
     } catch (e) {
-      console.error('Stalk:', e.message);
-      message.reply('Erreur lors du stalk.');
+      console.error('Stalk error:', e.message);
+      message.reply('Erreur lors du stalk : ' + e.message);
     }
+    return;
   }
+
+  // ══════════════════════════════════
+  //   COMMANDES CLASSIQUES
+  // ══════════════════════════════════
 
   if (cmd === 'naytawa') {
     const role = message.guild.roles.cache.get(IDS.ROLE_NAYTAWA);
@@ -802,9 +1054,9 @@ client.on('messageCreate', async message => {
     return message.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
   }
 
-  // WARN / UNWARN
+  // WARN — admin uniquement
   if (cmd === 'warn') {
-    if (!canWarn(message.member)) return message.reply('Permission refusee.');
+    if (!isAdmin(message.member)) return message.reply('Permission refusee. (Admin uniquement)');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     const reason = args.slice(1).join(' ') || 'Aucune raison';
@@ -818,7 +1070,7 @@ client.on('messageCreate', async message => {
   }
 
   if (cmd === 'unwarn') {
-    if (!canWarn(message.member)) return message.reply('Permission refusee.');
+    if (!isAdmin(message.member)) return message.reply('Permission refusee. (Admin uniquement)');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     const num = parseInt(args[1]);
@@ -833,10 +1085,9 @@ client.on('messageCreate', async message => {
     const target = message.mentions.members.first() || message.member;
     const w = warns.get(target.id)||[];
     if (!w.length) return message.reply(`${target.user.tag} n'a aucun warn.`);
-    return message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle(`Warns de ${target.user.tag}`).setDescription(w.map((x,i)=>`${i+1}. ${x.raison||x.type} - ${x.date} par ${x.by||'Auto'}`).join('\n')).setFooter({ text: `Total : ${w.length}` }).setTimestamp()] });
+    return message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle(`Warns de ${target.user.tag}`).setDescription(w.map((x,i)=>`${i+1}. ${x.raison||x.type} - ${x.date} par ${x.by||'Auto'}`).join('\n')).setFooter({ text:`Total : ${w.length}` }).setTimestamp()] });
   }
 
-  // GIVEAWAY
   if (cmd === 'giveaway') {
     if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const btn = new ButtonBuilder().setCustomId('gw_open_modal').setLabel('Configurer le giveaway').setStyle(ButtonStyle.Primary);
@@ -860,14 +1111,11 @@ client.on('messageCreate', async message => {
     return message.reply({ embeds: [new EmbedBuilder().setColor('#f1c40f').setTitle('Guide Giveaway — Naytawa Bot')
       .addFields(
         { name: '-giveaway', value: 'Ouvre un formulaire pour creer un giveaway. (Admin+)' },
-        { name: 'Prix', value: 'Ex: 10 euros Paypal, Nitro 1 mois...' },
         { name: 'Duree', value: 'Ex: 10m = 10 minutes, 1h = 1 heure, 2j = 2 jours' },
-        { name: 'Gagnants', value: 'Entre 1 et 10 gagnants.' },
         { name: 'Conditions (optionnel)', value: 'Format : `voc:Xh msg:X inv:X`\nEx: `voc:5h msg:100 inv:2`' },
       ).setFooter({ text: 'Naytawa' })] });
   }
 
-  // WL
   if (cmd === 'wl') {
     if (!canWL(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
@@ -893,7 +1141,7 @@ client.on('messageCreate', async message => {
     return message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Whitelist').setDescription(whitelistSet.size ? [...whitelistSet].map(id=>`<@${id}>`).join('\n') : 'Vide').setTimestamp()] });
   }
 
-  // OWNER (invisible)
+  // OWNER
   if (cmd === 'owner') {
     if (!isRealOwner(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
@@ -944,10 +1192,10 @@ client.on('messageCreate', async message => {
   if (cmd === 'vocsetup') {
     if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const channel = message.mentions.channels.first();
-    if (!channel || channel.type !== ChannelType.GuildVoice) return message.reply('Mentionne un salon vocal. Usage : `-vocsetup #salon-vocal`');
+    if (!channel || channel.type !== ChannelType.GuildVoice) return message.reply('Mentionne un salon vocal.');
     VOC_GENERATOR_CHANNEL_ID = channel.id;
     VOC_CATEGORY_ID = channel.parentId || null;
-    return message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Voc temporaire configure').setDescription(`Salon generateur : <#${channel.id}>\nCategorie : ${channel.parent?.name||'Meme categorie'}\n\nQuand un membre rejoint <#${channel.id}>, une voc privee est creee.\nElle disparait apres 10 minutes si vide.\nUn membre ne peut avoir qu'une seule voc a la fois.`).setTimestamp()] });
+    return message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Voc temporaire configure').setDescription(`Salon generateur : <#${channel.id}>\nCategorie : ${channel.parent?.name||'Meme categorie'}\nVocs supprimees 10 minutes apres etre vides.\nUne seule voc par personne.`).setTimestamp()] });
   }
 
   if (cmd === 'test') {
@@ -955,8 +1203,8 @@ client.on('messageCreate', async message => {
     return message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Diagnostic Naytawa Bot')
       .addFields(
         { name: 'Bot', value: `Tag : ${client.user.tag}\nPing : ${client.ws.ping}ms\nUptime : ${Math.floor(client.uptime/1000)}s` },
-        { name: 'Systemes', value: `Anti-insultes : ${censureActif?'Actif':'Desactive'}\nWhitelist : ${whitelistSet.size}\nOwners : ${ownerSet.size}\nVoc temp actives : ${tempVocs.size}` },
-        { name: 'Voc generateur', value: VOC_GENERATOR_CHANNEL_ID ? `<#${VOC_GENERATOR_CHANNEL_ID}>` : 'Non configure (-vocsetup #salon)' },
+        { name: 'Systemes', value: `Anti-insultes : ${censureActif?'Actif':'Desactive'}\nWhitelist : ${whitelistSet.size}\nOwners : ${ownerSet.size}\nVoc temp : ${tempVocs.size}` },
+        { name: 'Voc generateur', value: VOC_GENERATOR_CHANNEL_ID ? `<#${VOC_GENERATOR_CHANNEL_ID}>` : 'Non configure' },
         { name: 'Donnees', value: `Messages : ${messageCount.size}\nVocal : ${vocTime.size}\nWarns : ${warns.size}\nInvitations : ${inviteCount.size}\nGiveaways : ${giveaways.size}` },
         { name: 'Salons', value: ['SALON_STATS','SALON_TOP_MSG','SALON_TOP_VOC','SALON_TOP_INVITES','SALON_TICKET_PANEL','LOG_MOD'].map(k=>`${k} : ${message.guild.channels.cache.get(IDS[k])?'OK':'MANQUANT'}`).join('\n') },
       ).setTimestamp()] });
@@ -970,14 +1218,14 @@ client.on('messageCreate', async message => {
   }
 
   if (cmd === 'make' && args[0]==='panel') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
+    if (message.author.id !== OWNER_ID) return message.reply('Permission refusee. (Owner uniquement)');
     const titre = args[1]||'Panel'; const desc = args.slice(2).join(' ')||'Description.';
     await message.channel.send({ embeds: [new EmbedBuilder().setColor(COLOR).setAuthor({ name: 'Naytawa', iconURL: message.guild.iconURL({ dynamic: true }) }).setTitle(titre).setDescription(desc).setTimestamp().setFooter({ text: 'Naytawa' })] });
     await message.delete().catch(() => {});
   }
 
   if (cmd === 'panel') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
+    if (message.author.id !== OWNER_ID) return message.reply('Permission refusee. (Owner uniquement)');
     const type = args[0]?.toLowerCase();
     if (type==='reglement')    await sendPanelReglement(message.guild);
     else if (type==='roles')   await sendPanelRoles(message.guild);
@@ -994,14 +1242,14 @@ client.on('messageCreate', async message => {
 
   if (cmd === 'help') {
     const menu = new StringSelectMenuBuilder().setCustomId('help_select').setPlaceholder('Choisis une commande').addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('-stalk').setDescription('Stalk complet d un membre').setValue('cmd_stalk'),
+      new StringSelectMenuOptionBuilder().setLabel('-stalk').setDescription('Stalk ultra complet (Admin)').setValue('cmd_stalk'),
       new StringSelectMenuOptionBuilder().setLabel('-naytawa').setDescription('Role Naytawa gratuit').setValue('cmd_naytawa'),
       new StringSelectMenuOptionBuilder().setLabel('-avatar').setDescription('Photo de profil').setValue('cmd_avatar'),
       new StringSelectMenuOptionBuilder().setLabel('-profil').setDescription('Profil interactif').setValue('cmd_profil'),
       new StringSelectMenuOptionBuilder().setLabel('-s-u').setDescription('Stats completes').setValue('cmd_su'),
       new StringSelectMenuOptionBuilder().setLabel('-invites / -topinvites').setDescription('Invitations').setValue('cmd_invites'),
-      new StringSelectMenuOptionBuilder().setLabel('-warn / -unwarn / -warns').setDescription('Avertissements').setValue('cmd_warn'),
-      new StringSelectMenuOptionBuilder().setLabel('-giveaway').setDescription('Creer un giveaway').setValue('cmd_giveaway'),
+      new StringSelectMenuOptionBuilder().setLabel('-warn / -unwarn / -warns').setDescription('Avertissements (Admin)').setValue('cmd_warn'),
+      new StringSelectMenuOptionBuilder().setLabel('-giveaway').setDescription('Creer un giveaway (Admin)').setValue('cmd_giveaway'),
       new StringSelectMenuOptionBuilder().setLabel('-wl / -unwl / -wllist').setDescription('Whitelist censure').setValue('cmd_wl'),
       new StringSelectMenuOptionBuilder().setLabel('Admin & Panels').setDescription('Toutes les commandes admin').setValue('cmd_admin'),
     );
@@ -1101,85 +1349,92 @@ client.on('interactionCreate', async interaction => {
     // ─── SELECT MENUS ───
     if (interaction.isStringSelectMenu()) {
 
-      // Help
-      if (interaction.customId==='help_select') {
-        const pages = {
-          cmd_stalk:   { title: '-stalk [@user]', desc: 'Stalk complet d\'un membre.\n\nUtilisation : `-stalk @user` ou `-stalk` (toi-meme)\n\nAffiche :\n- Infos compte (tag, ID, age, badges Discord)\n- Infos serveur (date arrivee, anciennete, nickname)\n- Statut et activite (Spotify, jeux, status perso)\n- Stats vocales et classement\n- Stats messages et invitations\n- Moderation (warns, whitelist)\n- Tous les roles\n- Banniere si disponible\n\nMenu interactif pour voir encore plus de details.' },
-          cmd_naytawa: { title: '-naytawa', desc: 'Obtenir le role Naytawa gratuitement.\n\nUtilisation : `-naytawa`\n\nDonne automatiquement le role Naytawa. Pas besoin de permission.' },
-          cmd_avatar:  { title: '-avatar [@user]', desc: 'Afficher la photo de profil d\'un membre.\n\nUtilisation : `-avatar` ou `-avatar @user`' },
-          cmd_profil:  { title: '-profil [@user]', desc: 'Profil interactif d\'un membre.\n\nMenu avec : date arrivee, photo de profil, stats, roles, warns.' },
-          cmd_su:      { title: '-s-u [@user]', desc: 'Stats completes d\'un membre.\n\nMessages, vocal, invitations, warns, statut vocal, roles.\nMenu pour voir le detail vocal, warns, roles et activite.' },
-          cmd_invites: { title: '-invites / -topinvites', desc: '-invites [@user] : invitations d\'un membre.\n-topinvites : top 10 des inviteurs du serveur.' },
-          cmd_warn:    { title: '-warn / -unwarn / -warns', desc: '-warn @user <raison> : avertir un membre.\n-unwarn @user <numero> : supprimer un warn.\n-warns [@user] : voir les warns.\n\nAccessible avec le role de permission.' },
-          cmd_giveaway:{ title: '-giveaway', desc: 'Creer un giveaway interactif.\n\nPrix, duree, gagnants, conditions (voc/msg/inv).\nLes participants voient leurs stats vs conditions en temps reel.' },
-          cmd_wl:      { title: '-wl / -unwl / -wllist', desc: '-wl @user : ajouter a la whitelist censure.\n-unwl @user : retirer.\n-wllist : voir la liste.\n\nLes membres WL ne sont pas affectes par anti-insultes et anti-spam.\nRole special requis.' },
-          cmd_admin:   { title: 'Admin & Panels', desc: '-panel reglement/roles/tickets/prison/top/topinvites/partenariat\n-make panel <titre> <desc>\n-censure on/off\n-antispam\n-vocsetup #salon (vocs temporaires)\n-test (diagnostic)\n-backup (sauvegarde)\n-gif <lien> (owner)\n-owner @user (ajouter owner invisible)\n-unowner @user\n-ownerlist' },
-        };
-        const page = pages[interaction.values[0]];
-        if (page) return interaction.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle(page.title).setDescription(page.desc).setFooter({ text: 'Naytawa' }).setTimestamp()], ephemeral: true });
-      }
-
       // Stalk detail
       if (interaction.customId.startsWith('stalk_')) {
+        // Seuls les admins peuvent utiliser le stalk
+        if (!isAdmin(member)) return interaction.reply({ content: 'Permission refusee.', ephemeral: true });
+
         const targetId = interaction.customId.replace('stalk_','');
         const target = await guild.members.fetch(targetId).catch(() => null);
-        if (!target) return interaction.reply({ content: 'Membre introuvable.', ephemeral: true });
+        const targetUser = target?.user || await client.users.fetch(targetId).catch(() => null);
+        if (!targetUser) return interaction.reply({ content: 'Membre introuvable.', ephemeral: true });
+
         const val = interaction.values[0];
         let embed;
 
         if (val === 'voc') {
-          const voc = vocTime.get(target.id)||0;
-          const h=Math.floor(voc/3600000), mn=Math.floor((voc%3600000)/60000), s=Math.floor((voc%60000)/1000);
-          const inVoc = vocJoin.has(target.id);
-          const vocCh = inVoc ? guild.voiceStates.cache.get(target.id)?.channel : null;
-          const posVoc = [...vocTime.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===target.id)+1;
-          embed = new EmbedBuilder().setColor(COLOR).setTitle(`Vocal complet — ${target.displayName}`)
-            .addFields(
-              { name: 'Temps total', value: `${h}h ${mn}m ${s}s`, inline: true },
-              { name: 'Classement', value: `#${posVoc||'?'}`, inline: true },
-              { name: 'Statut actuel', value: inVoc ? `En vocal dans <#${vocCh?.id}>\nDepuis <t:${Math.floor(vocJoin.get(target.id)/1000)}:R>` : 'Pas en vocal', inline: false },
-            ).setThumbnail(target.user.displayAvatarURL({ dynamic: true })).setTimestamp();
+          embed = await buildVocalEmbed(targetId, guild);
+          embed.setTitle(`Vocal complet — ${targetUser.tag}`);
         }
 
-        if (val === 'warns') {
-          const w = warns.get(target.id)||[];
-          embed = new EmbedBuilder().setColor('#faa61a').setTitle(`Warns complets — ${target.displayName}`)
-            .setDescription(w.length ? w.map((x,i)=>`**${i+1}.** ${x.raison||x.type}\n   Date : ${x.date} | Par : ${x.by||'Auto'}`).join('\n\n') : 'Aucun avertissement.')
-            .setFooter({ text: `Total : ${w.length} warn(s)` }).setTimestamp();
+        if (val === 'games') {
+          embed = await buildGamesEmbed(targetUser, target);
+        }
+
+        if (val === 'account') {
+          embed = await buildAccountEmbed(targetUser, target);
+        }
+
+        if (val === 'servers') {
+          embed = await buildMultiServerEmbed(targetId);
+          embed.setTitle(`Serveurs communs — ${targetUser.tag}`);
+        }
+
+        if (val === 'moderation') {
+          embed = await buildModerationEmbed(targetId, guild);
+          embed.setTitle(`Dossier moderation — ${targetUser.tag}`);
         }
 
         if (val === 'roles') {
-          const hist = rolesHistory.get(target.id)||[];
-          const current = target.roles.cache.filter(r=>r.id!==guild.id).sort((a,b)=>b.position-a.position).map(r=>`${r.toString()} (pos: ${r.position})`).join('\n').slice(0,900)||'Aucun';
-          embed = new EmbedBuilder().setColor(COLOR).setTitle(`Roles — ${target.displayName}`)
+          const hist = rolesHistory.get(targetId)||[];
+          const currentRoles = target
+            ? target.roles.cache.filter(r=>r.id!==guild.id).sort((a,b)=>b.position-a.position).map(r=>`${r.toString()} *(pos: ${r.position}, couleur: ${r.hexColor})*`).join('\n').slice(0,1500)
+            : 'Non disponible';
+          embed = new EmbedBuilder().setColor(COLOR).setTitle(`Roles — ${targetUser.tag}`)
             .addFields(
-              { name: `Roles actuels (${target.roles.cache.size-1})`, value: current },
-              { name: 'Derniers changements', value: hist.length ? hist.slice(0,15).map((h,i)=>`${i+1}. ${h.type==='ajoute'?'➕':'➖'} **${h.name}** — ${h.date}`).join('\n') : 'Aucun historique' },
-            ).setTimestamp();
+              { name: `Roles actuels (${target ? target.roles.cache.size-1 : 0})`, value: currentRoles || 'Aucun', inline: false },
+              { name: 'Historique changements', value: hist.length ? hist.slice(0,15).map((h,i)=>`${i+1}. ${h.type==='ajoute'?'➕':'➖'} **${h.name}** — ${h.date}`).join('\n') : 'Aucun historique', inline: false },
+            ).setTimestamp().setFooter({ text: 'Naytawa Stalk System' });
         }
 
-        if (val === 'activite') {
-          const msgs = messageCount.get(target.id)||0;
-          const inv  = inviteCount.get(target.id)||0;
-          const posMsg = [...messageCount.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===target.id)+1;
-          const posInv = [...inviteCount.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===target.id)+1;
-          embed = new EmbedBuilder().setColor(COLOR).setTitle(`Activite — ${target.displayName}`)
+        if (val === 'stats') {
+          const msgs = messageCount.get(targetId)||0;
+          const voc  = vocTime.get(targetId)||0;
+          const inv  = inviteCount.get(targetId)||0;
+          const w    = warns.get(targetId)||[];
+          const posMsg = [...messageCount.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===targetId)+1;
+          const posVoc = [...vocTime.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===targetId)+1;
+          const posInv = [...inviteCount.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===targetId)+1;
+
+          embed = new EmbedBuilder().setColor(COLOR).setTitle(`Stats completes — ${targetUser.tag}`)
             .addFields(
               { name: 'Messages envoyes', value: `**${msgs.toLocaleString()}**\nClassement : #${posMsg||'?'}`, inline: true },
+              { name: 'Temps vocal total', value: `**${formatDuration(voc)}**\nClassement : #${posVoc||'?'}`, inline: true },
               { name: 'Invitations', value: `**${inv}**\nClassement : #${posInv||'?'}`, inline: true },
-            ).setTimestamp();
-        }
-
-        if (val === 'banniere') {
-          const user = await target.user.fetch({ force: true }).catch(() => target.user);
-          const bannerUrl = user.bannerURL({ size: 1024 });
-          embed = new EmbedBuilder().setColor(COLOR).setTitle(`Banniere — ${target.displayName}`);
-          if (bannerUrl) embed.setImage(bannerUrl);
-          else embed.setDescription('Ce membre n\'a pas de banniere.');
-          embed.setTimestamp();
+              { name: 'Avertissements', value: `**${w.length}** warn${w.length>1?'s':''}`, inline: true },
+            )
+            .setTimestamp().setFooter({ text: 'Naytawa Stalk System' });
         }
 
         if (embed) return interaction.reply({ embeds: [embed], ephemeral: true });
+      }
+
+      // Help
+      if (interaction.customId==='help_select') {
+        const pages = {
+          cmd_stalk:   { title: '-stalk [@user | nom | ID]', desc: '**Admin uniquement.**\n\nStalk ultra complet d\'un membre :\n\n- Infos compte (tag, ID, age, badges Discord)\n- Statut et activites en temps reel (Spotify, jeux en cours avec details, stream, status perso)\n- Vocal : salon actuel, temps exact, session en cours, autres membres dans la voc\n- Sur ce serveur : date arrivee, anciennete, nickname, boost\n- Moderation : warns, mute actuel, whitelist\n- Roles : tous les roles avec position et couleur\n- Serveurs communs : tous les serveurs ou le bot est present avec lui\n- Stats completes : classements messages, vocal, invitations\n\nMenu interactif pour approfondir chaque section.' },
+          cmd_naytawa: { title: '-naytawa', desc: 'Obtenir le role Naytawa gratuitement.\n\nUtilisation : `-naytawa`' },
+          cmd_avatar:  { title: '-avatar [@user]', desc: 'Afficher la photo de profil d\'un membre.' },
+          cmd_profil:  { title: '-profil [@user]', desc: 'Profil interactif : date arrivee, photo de profil, stats, roles, warns.' },
+          cmd_su:      { title: '-s-u [@user]', desc: 'Stats rapides : messages, vocal, invitations, warns, roles. Menu pour details.' },
+          cmd_invites: { title: '-invites / -topinvites', desc: '-invites [@user] : invitations d\'un membre.\n-topinvites : top 10 des inviteurs.' },
+          cmd_warn:    { title: '-warn / -unwarn / -warns (Admin)', desc: '-warn @user <raison> : avertir.\n-unwarn @user <numero> : supprimer un warn.\n-warns [@user] : voir les warns.' },
+          cmd_giveaway:{ title: '-giveaway (Admin)', desc: 'Creer un giveaway interactif.\nPrix, duree, gagnants, conditions optionnelles.' },
+          cmd_wl:      { title: '-wl / -unwl / -wllist', desc: 'Whitelist censure (role special requis).\n-wl @user / -unwl @user / -wllist' },
+          cmd_admin:   { title: 'Admin & Panels', desc: '-panel [type] : reglement/roles/tickets/prison/top/topinvites/partenariat (Owner uniquement)\n-make panel <titre> <desc> (Owner uniquement)\n-censure on/off\n-antispam\n-vocsetup #salon\n-test\n-backup\n-gif <lien> (Owner)\n-owner @user / -unowner / -ownerlist (Owner)' },
+        };
+        const page = pages[interaction.values[0]];
+        if (page) return interaction.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle(page.title).setDescription(page.desc).setFooter({ text: 'Naytawa' }).setTimestamp()], ephemeral: true });
       }
 
       // Notifications
@@ -1226,7 +1481,7 @@ client.on('interactionCreate', async interaction => {
         const target = await guild.members.fetch(targetId).catch(() => null);
         if (!target) return interaction.reply({ content: 'Membre introuvable.', ephemeral: true });
         const val = interaction.values[0]; let embed;
-        if (val==='arrivee') embed = new EmbedBuilder().setColor(COLOR).setTitle(`Arrivee de ${target.displayName}`).addFields({ name: 'Arrive le', value: `<t:${Math.floor(target.joinedTimestamp/1000)}:F> (<t:${Math.floor(target.joinedTimestamp/1000)}:R>)` }, { name: 'Compte cree le', value: `<t:${Math.floor(target.user.createdTimestamp/1000)}:F>` }).setTimestamp();
+        if (val==='arrivee') embed = new EmbedBuilder().setColor(COLOR).setTitle(`Arrivee de ${target.displayName}`).addFields({ name: 'Arrive le', value: formatDate(target.joinedTimestamp) }, { name: 'Compte cree le', value: formatDate(target.user.createdTimestamp) }).setTimestamp();
         if (val==='avatar') { const u=await target.user.fetch(); embed=new EmbedBuilder().setColor(COLOR).setTitle(`PP de ${target.displayName}`).setImage(target.user.displayAvatarURL({ dynamic:true, size:1024 })).setTimestamp(); if (u.bannerURL()) embed.addFields({ name: 'Banniere', value: `[Voir](${u.bannerURL({ size:1024 })})` }); }
         if (val==='stats') { const ms=messageCount.get(target.id)||0; const vc=vocTime.get(target.id)||0; const hh=Math.floor(vc/3600000); const mm=Math.floor((vc%3600000)/60000); const pm=[...messageCount.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===target.id)+1; const pv=[...vocTime.entries()].sort((a,b)=>b[1]-a[1]).findIndex(e=>e[0]===target.id)+1; embed=new EmbedBuilder().setColor(COLOR).setTitle(`Stats de ${target.displayName}`).addFields({ name:'Messages', value:`${ms.toLocaleString()}\n#${pm||'?'}`, inline:true }, { name:'Vocal', value:`${hh}h ${mm}m\n#${pv||'?'}`, inline:true }).setTimestamp(); }
         if (val==='roles') { const hist=rolesHistory.get(target.id)||[]; embed=new EmbedBuilder().setColor(COLOR).setTitle(`Roles de ${target.displayName}`).addFields({ name:'Roles actuels', value:target.roles.cache.filter(r=>r.id!==guild.id).map(r=>r.toString()).join(' ').slice(0,800)||'Aucun' }, { name:'Historique', value:hist.length?hist.slice(0,10).map((h,i)=>`${i+1}. ${h.type==='ajoute'?'+':'-'} ${h.name} - ${h.date}`).join('\n'):'Aucun' }).setTimestamp(); }
