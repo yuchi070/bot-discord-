@@ -53,9 +53,8 @@ const IDS = {
   ROLE_NOTIF_GIVEAWAY: '1506250141777268797',
   ROLE_TICKET:         '1505609735036993659',
   ROLE_NAYTAWA:        '1506332594185437375',
-  ROLE_WL:             '1506580974144720967',
-  ROLE_WPERM:          '1506650704243069158',
-  ROLE_MIDPERM:        '1506650786354958396',
+  ROLE_WL:             '1506580974144720967',      // rôle donné aux gens wl
+  ROLE_WL_PERM:        '1508223353683574845',      // rôle qui peut faire wl/unwl
   CAT_TICKETS:         '1505541035479138434',
   LOG_MSG:             '1505541550203998330',
   LOG_TICKET:          '1505541540557361353',
@@ -63,6 +62,11 @@ const IDS = {
   LOG_ROLE:            '1505541512837070979',
   LOG_MOD:             '1505541549335904266',
 };
+
+// ID du salon générateur de voc temporaire (à changer si besoin)
+// La catégorie et le salon générateur sont configurables via -vocsetup
+let VOC_GENERATOR_CHANNEL_ID = null; // salon que les gens rejoignent pour créer une voc
+let VOC_CATEGORY_ID = null;          // catégorie où les vocs temporaires sont créées
 
 const GIF = {
   TOP:          'https://cdn.discordapp.com/attachments/1505541381198975036/1506664608612483122/InShot_20260519_234951472.gif',
@@ -74,8 +78,6 @@ const GIF = {
   PARTENARIAT:  'https://cdn.discordapp.com/attachments/1505541381198975036/1506232948930908170/1a13c8300696a51f0f7e45d726cce0b3_1.gif',
 };
 
-const VIDEO_LOVE = 'https://media.discordapp.net/attachments/1462161276187836487/1506763751502778449/fan2javel_TikTokDownloader.com_71fe3.mp4';
-
 // ══ DONNÉES ══
 const messageCount   = new Map();
 const vocTime        = new Map();
@@ -85,42 +87,26 @@ const rolesHistory   = new Map();
 const inviteTracker  = new Map();
 const inviteCount    = new Map();
 const whitelistSet   = new Set();
-const wpermSet       = new Set();
-const midpermSet     = new Set();
 const antiSpamExclus = new Set();
 const spamTracker    = new Map();
-const giveaways      = new Map(); // msgId -> data
+const giveaways      = new Map();
 const autoreponseCD  = new Map();
-let censureActif     = true;
-let botPingCooldown  = null;
-let botPingStage     = 0;
+
+// Vocs temporaires : channelId -> { ownerId, timeout }
+const tempVocs = new Map();
+
+let censureActif    = true;
+let botPingCooldown = null;
+let botPingStage    = 0;
 
 // ══ PERMISSIONS ══
-// Vérifie le rôle Discord ET le set mémoire
-function hasRole(member, roleId) {
-  return member.roles.cache.has(roleId);
-}
 function isAdmin(member) {
   return member.permissions.has(PermissionFlagsBits.Administrator) ||
          member.permissions.has(PermissionFlagsBits.ManageGuild);
 }
-function isWperm(member) {
-  if (isAdmin(member)) return true;
-  if (hasRole(member, IDS.ROLE_WPERM)) return true;
-  if (wpermSet.has(member.id)) return true;
-  return false;
-}
-function isMidperm(member) {
-  if (isWperm(member)) return true;
-  if (hasRole(member, IDS.ROLE_MIDPERM)) return true;
-  if (midpermSet.has(member.id)) return true;
-  return false;
-}
-function getNiveau(member) {
-  if (isAdmin(member))   return 'Admin';
-  if (isWperm(member))   return 'Wperm';
-  if (isMidperm(member)) return 'Midperm';
-  return 'Libre';
+// Seul le rôle ROLE_WL_PERM ou admin peut wl/unwl
+function canWL(member) {
+  return isAdmin(member) || member.roles.cache.has(IDS.ROLE_WL_PERM);
 }
 
 // ══ ANTI-INSULTES ══
@@ -174,11 +160,8 @@ client.once('ready', async () => {
     const invites = await guild.invites.fetch().catch(() => null);
     if (invites) inviteTracker.set(guild.id, new Map(invites.map(i => [i.code, { uses: i.uses||0, inviterId: i.inviter?.id }])));
   }
-  // Stats : nouveau message toutes les 2 minutes
   setInterval(sendStats, 120000);
-  // Top vocal toutes les 5 minutes
   setInterval(updateTopVoc, 300000);
-  // Check giveaways toutes les 15 secondes
   setInterval(checkGiveaways, 15000);
 });
 
@@ -188,7 +171,7 @@ client.on('inviteCreate', invite => {
   inviteTracker.set(invite.guild.id, map);
 });
 
-// ══ STATS — nouveau message toutes les 2 min ══
+// ══ STATS ══
 async function sendStats() {
   try {
     const guild = client.guilds.cache.first();
@@ -213,7 +196,6 @@ async function sendStats() {
       .setThumbnail(guild.iconURL({ dynamic: true }))
       .setTimestamp()
       .setFooter({ text: 'Naytawa' });
-    // Toujours un nouveau message — pas d'édition
     await salon.send({ embeds: [embed] });
   } catch (e) { console.error('Stats:', e.message); }
 }
@@ -297,7 +279,7 @@ async function updateTopInvites(guild) {
   } catch (e) { console.error('TopInvites:', e.message); }
 }
 
-// ══ GIVEAWAY CHECK ══
+// ══ GIVEAWAY ══
 async function checkGiveaways() {
   const now = Date.now();
   for (const [id, gw] of giveaways) {
@@ -315,8 +297,6 @@ async function finishGiveaway(gw) {
   const channel = guild.channels.cache.get(gw.channelId);
   if (!channel) return;
   const msg = await channel.messages.fetch(gw.messageId).catch(() => null);
-
-  // Filtre selon conditions
   const eligibles = [];
   for (const userId of gw.participants) {
     const vocH = (vocTime.get(userId)||0) / 3600000;
@@ -327,26 +307,45 @@ async function finishGiveaway(gw) {
     if (gw.conditions.invMin > 0 && inv  < gw.conditions.invMin) continue;
     eligibles.push(userId);
   }
-
   const pool = [...eligibles];
   const gagnants = [];
   for (let i = 0; i < Math.min(gw.nbGagnants, pool.length); i++) {
     const idx = Math.floor(Math.random() * pool.length);
     gagnants.push(pool.splice(idx,1)[0]);
   }
-
-  const embed = new EmbedBuilder()
-    .setColor('#f1c40f')
-    .setTitle(`Giveaway termine — ${gw.prix}`)
+  const embed = new EmbedBuilder().setColor('#f1c40f').setTitle(`Giveaway termine — ${gw.prix}`)
     .setDescription(gagnants.length > 0
       ? `Gagnant${gagnants.length>1?'s':''} : ${gagnants.map(id=>`<@${id}>`).join(', ')}\nEligibles : ${eligibles.length}/${gw.participants.length}`
       : 'Aucun participant eligible !')
-    .setTimestamp()
-    .setFooter({ text: 'Naytawa • Giveaway termine' });
-
+    .setTimestamp().setFooter({ text: 'Naytawa • Giveaway termine' });
   if (msg) await msg.edit({ embeds: [embed], components: [] }).catch(() => {});
   if (gagnants.length > 0) await channel.send(`Felicitations ${gagnants.map(id=>`<@${id}>`).join(', ')} ! Vous avez gagne **${gw.prix}** !`);
   else await channel.send(`Aucun participant eligible pour **${gw.prix}**.`);
+}
+
+// ══ PARSE DURÉE GIVEAWAY ══
+function parseDuree(str) {
+  const s = str.toLowerCase().trim();
+  const val = parseInt(s);
+  if (s.endsWith('j')) return val * 86400000;
+  if (s.endsWith('h')) return val * 3600000;
+  return val * 60000;
+}
+function parseDureeLabel(ms) {
+  if (ms >= 86400000) return `${ms/86400000}j`;
+  if (ms >= 3600000)  return `${ms/3600000}h`;
+  return `${ms/60000}min`;
+}
+function parseConditions(str) {
+  const cond = { vocMin: 0, msgMin: 0, invMin: 0 };
+  if (!str) return cond;
+  const vocMatch = str.match(/voc:(\d+)h?/i);
+  const msgMatch = str.match(/msg:(\d+)/i);
+  const invMatch = str.match(/inv:(\d+)/i);
+  if (vocMatch) cond.vocMin = parseInt(vocMatch[1]);
+  if (msgMatch) cond.msgMin = parseInt(msgMatch[1]);
+  if (invMatch) cond.invMin = parseInt(invMatch[1]);
+  return cond;
 }
 
 // ══ BIENVENUE ══
@@ -407,6 +406,80 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
   } catch (e) { console.error('MemberUpdate:', e.message); }
 });
 
+// ══ VOC TEMPORAIRE ══
+client.on('voiceStateUpdate', async (oldState, newState) => {
+  const guild = newState.guild || oldState.guild;
+  const member = newState.member || oldState.member;
+
+  try {
+    // Log VOC
+    const logCh = guild.channels.cache.get(IDS.LOG_VOC);
+    if (member) {
+      if (!oldState.channelId && newState.channelId) {
+        vocJoin.set(member.id, Date.now());
+        if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Rejoint vocal').setDescription(`Membre : ${member.user.tag}\nSalon : <#${newState.channelId}>\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
+      } else if (oldState.channelId && !newState.channelId) {
+        const join = vocJoin.get(member.id);
+        if (join) {
+          const elapsed = Date.now() - join;
+          vocTime.set(member.id, (vocTime.get(member.id)||0) + elapsed);
+          vocJoin.delete(member.id);
+          const h = Math.floor(elapsed/3600000); const m2 = Math.floor((elapsed%3600000)/60000);
+          if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Quitte vocal').setDescription(`Membre : ${member.user.tag}\nSalon : <#${oldState.channelId}>\nTemps : ${h}h ${m2}m`).setTimestamp()] });
+          updateTopVoc().catch(() => {});
+        }
+      } else if (oldState.channelId !== newState.channelId && logCh) {
+        logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Changement vocal').setDescription(`Membre : ${member.user.tag}\nDe : <#${oldState.channelId}>\nVers : <#${newState.channelId}>`).setTimestamp()] });
+      }
+      if (!oldState.serverMute && newState.serverMute && logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Mute vocal').setDescription(`Membre : ${member.user.tag}`).setTimestamp()] });
+      if (oldState.serverMute && !newState.serverMute && logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Demute vocal').setDescription(`Membre : ${member.user.tag}`).setTimestamp()] });
+    }
+
+    // Générateur de voc temporaire
+    if (VOC_GENERATOR_CHANNEL_ID && newState.channelId === VOC_GENERATOR_CHANNEL_ID && member) {
+      // Cherche la catégorie
+      const catId = VOC_CATEGORY_ID || guild.channels.cache.get(VOC_GENERATOR_CHANNEL_ID)?.parentId;
+      const tempChannel = await guild.channels.create({
+        name: `voc de ${member.displayName}`,
+        type: ChannelType.GuildVoice,
+        parent: catId || null,
+        permissionOverwrites: [
+          { id: guild.id, allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.ViewChannel] },
+          { id: member.id, allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] },
+        ],
+      }).catch(() => null);
+      if (tempChannel) {
+        await member.voice.setChannel(tempChannel).catch(() => {});
+        tempVocs.set(tempChannel.id, { ownerId: member.id, timeout: null });
+      }
+    }
+
+    // Suppression voc temporaire vide après 10 minutes
+    if (oldState.channelId && tempVocs.has(oldState.channelId)) {
+      const vocData = tempVocs.get(oldState.channelId);
+      const channel = guild.channels.cache.get(oldState.channelId);
+      if (channel && channel.members.size === 0) {
+        // Annule l'ancien timeout si existe
+        if (vocData.timeout) clearTimeout(vocData.timeout);
+        const t = setTimeout(async () => {
+          const ch = guild.channels.cache.get(oldState.channelId);
+          if (ch && ch.members.size === 0) {
+            await ch.delete().catch(() => {});
+            tempVocs.delete(oldState.channelId);
+          }
+        }, 10 * 60 * 1000); // 10 minutes
+        vocData.timeout = t;
+        tempVocs.set(oldState.channelId, vocData);
+      } else if (channel && channel.members.size > 0 && vocData.timeout) {
+        // Si quelqu'un rejoint, annule le timeout de suppression
+        clearTimeout(vocData.timeout);
+        vocData.timeout = null;
+        tempVocs.set(oldState.channelId, vocData);
+      }
+    }
+  } catch (e) { console.error('VoiceState:', e.message); }
+});
+
 // ══ MESSAGES ══
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
@@ -447,7 +520,7 @@ client.on('messageCreate', async message => {
   if ((contentLower.includes('incapable') || contentLower.includes('tocard') || contentLower.includes('loser')) && peutRepondre(message.author.id, 'loser'))
     await message.reply("Peut-etre que tu crois qu'on n'a pas travaille sur la route du bonheur, je cavalais");
 
-  const isWL = hasRole(message.member, IDS.ROLE_WL) || whitelistSet.has(message.author.id);
+  const isWL = message.member?.roles.cache.has(IDS.ROLE_WL) || whitelistSet.has(message.author.id);
 
   if (!isWL && checkSpam(message)) {
     try {
@@ -491,7 +564,7 @@ client.on('messageCreate', async message => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const cmd  = args.shift().toLowerCase();
 
-  // ══════════════ LIBRES ══════════════
+  // ══ COMMANDES LIBRES ══
 
   if (cmd === 'naytawa') {
     const role = message.guild.roles.cache.get(IDS.ROLE_NAYTAWA);
@@ -508,8 +581,6 @@ client.on('messageCreate', async message => {
     return message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle(`Avatar de ${target.tag}`).setImage(target.displayAvatarURL({ dynamic: true, size: 1024 }))] });
   }
 
-  if (cmd === 'love') return message.channel.send(VIDEO_LOVE);
-
   if (cmd === 'invites') {
     const target = message.mentions.members.first() || message.member;
     const cnt = inviteCount.get(target.id) || 0;
@@ -525,10 +596,10 @@ client.on('messageCreate', async message => {
   if (cmd === 'profil') {
     const target = message.mentions.members.first() || message.member;
     const menu = new StringSelectMenuBuilder().setCustomId(`profil_${target.id}`).setPlaceholder('Choisis ce que tu veux voir').addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Date arrivee').setDescription("Date d'arrivee").setValue('arrivee'),
+      new StringSelectMenuOptionBuilder().setLabel('Date arrivee').setDescription("Date d'arrivee sur le serveur").setValue('arrivee'),
       new StringSelectMenuOptionBuilder().setLabel('Photo de profil').setDescription('PP et banniere').setValue('avatar'),
-      new StringSelectMenuOptionBuilder().setLabel('Messages et vocal').setDescription('Stats').setValue('stats'),
-      new StringSelectMenuOptionBuilder().setLabel('Derniers roles').setDescription('10 derniers roles').setValue('roles'),
+      new StringSelectMenuOptionBuilder().setLabel('Messages et vocal').setDescription('Stats messages et temps vocal').setValue('stats'),
+      new StringSelectMenuOptionBuilder().setLabel('Derniers roles').setDescription('10 derniers roles ajoutes/retires').setValue('roles'),
       new StringSelectMenuOptionBuilder().setLabel('Avertissements').setDescription('10 derniers warns').setValue('warns'),
     );
     return message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setAuthor({ name: `Profil de ${target.displayName}`, iconURL: target.user.displayAvatarURL({ dynamic: true }) }).setDescription('Que veux-tu voir ?').setThumbnail(target.user.displayAvatarURL({ dynamic: true })).setFooter({ text: 'Naytawa' })], components: [new ActionRowBuilder().addComponents(menu)] });
@@ -567,166 +638,65 @@ client.on('messageCreate', async message => {
     return message.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
   }
 
-  if (cmd === 'help') {
-    const menu = new StringSelectMenuBuilder().setCustomId('help_select').setPlaceholder('Choisis une categorie').addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Commandes libres').setDescription('Tout le monde').setValue('libre'),
-      new StringSelectMenuOptionBuilder().setLabel('Moderation').setDescription('Warn, mute, kick, ban...').setValue('modo'),
-      new StringSelectMenuOptionBuilder().setLabel('Giveaway').setDescription('Systeme de giveaway').setValue('giveaway'),
-      new StringSelectMenuOptionBuilder().setLabel('Permissions').setDescription('Wperm, midperm, whitelist').setValue('perms'),
-      new StringSelectMenuOptionBuilder().setLabel('Admin').setDescription('Commandes admin').setValue('admin'),
-      new StringSelectMenuOptionBuilder().setLabel('Panels').setDescription('Commandes de panels').setValue('panels'),
-      new StringSelectMenuOptionBuilder().setLabel('Mes permissions').setDescription('Voir ce que tu peux faire').setValue('mesperm'),
-    );
-    return message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Naytawa Bot — Aide').setDescription('Choisis une categorie pour voir les commandes.').setFooter({ text: `Prefixe : ${PREFIX}` }).setTimestamp()], components: [new ActionRowBuilder().addComponents(menu)] });
-  }
-
-  // ══════════════ MIDPERM ══════════════
-
   if (cmd === 'giveaway') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusee. (Midperm minimum)');
-    // Ouvre directement un modal pour configurer le giveaway
-    const modal = new ModalBuilder().setCustomId('gw_create').setTitle('Creer un Giveaway');
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('gw_prix').setLabel('Prix du giveaway').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(100).setPlaceholder('Ex: 10 euros Paypal')),
-      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('gw_duree').setLabel('Duree (ex: 10m, 1h, 2h, 1j, 3j)').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(10).setPlaceholder('Ex: 1h')),
-      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('gw_gagnants').setLabel('Nombre de gagnants (1-10)').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(2).setPlaceholder('Ex: 1')),
-      new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('gw_conditions').setLabel('Conditions (optionnel)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100).setPlaceholder('Ex: voc:5h msg:100 inv:2')),
-    );
-    return interaction_showModal_workaround(message, modal);
+    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
+    const btn = new ButtonBuilder().setCustomId('gw_open_modal').setLabel('Configurer le giveaway').setStyle(ButtonStyle.Primary);
+    const m = await message.reply({ content: 'Clique sur le bouton pour configurer le giveaway :', components: [new ActionRowBuilder().addComponents(btn)] });
+    const collector = m.createMessageComponentCollector({ filter: i => i.user.id === message.author.id && i.customId === 'gw_open_modal', time: 60000, max: 1 });
+    collector.on('collect', async i => {
+      const modal = new ModalBuilder().setCustomId('gw_create').setTitle('Creer un Giveaway');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('gw_prix').setLabel('Prix du giveaway').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(100).setPlaceholder('Ex: 10 euros Paypal')),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('gw_duree').setLabel('Duree (ex: 10m, 1h, 2h, 1j)').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(10).setPlaceholder('Ex: 1h')),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('gw_gagnants').setLabel('Nombre de gagnants (1-10)').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(2).setPlaceholder('Ex: 1')),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('gw_conditions').setLabel('Conditions (optionnel)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100).setPlaceholder('Ex: voc:5h msg:100 inv:2')),
+      );
+      await i.showModal(modal);
+      await m.edit({ content: 'Formulaire ouvert !', components: [] }).catch(() => {});
+    });
+    collector.on('end', (collected) => {
+      if (collected.size === 0) m.edit({ content: 'Temps ecoule.', components: [] }).catch(() => {});
+    });
   }
 
   if (cmd === 'helpgiveaway') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusee. (Midperm minimum)');
     return message.reply({ embeds: [new EmbedBuilder().setColor('#f1c40f').setTitle('Guide Giveaway — Naytawa Bot')
       .addFields(
-        { name: '-giveaway', value: 'Ouvre un formulaire pour creer un giveaway. (Midperm+)' },
-        { name: 'Formulaire — Prix', value: 'Ex: 10 euros Paypal, Nitro 1 mois...' },
-        { name: 'Formulaire — Duree', value: 'Ex: 10m = 10 minutes, 1h = 1 heure, 2j = 2 jours' },
-        { name: 'Formulaire — Gagnants', value: 'Nombre de gagnants : entre 1 et 10' },
-        { name: 'Formulaire — Conditions (optionnel)', value: 'Format : `voc:Xh msg:X inv:X`\nEx: `voc:5h msg:100 inv:2`\nLaisse vide si pas de conditions.' },
-        { name: 'Participation', value: 'Les membres cliquent sur "Participer". Leur eligibilite est affichee en temps reel.' },
-        { name: 'Tirage', value: 'Automatique a la fin. Les ineligibles sont exclus.' },
+        { name: '-giveaway', value: 'Ouvre un formulaire pour creer un giveaway. (Admin+)' },
+        { name: 'Prix', value: 'Ex: 10 euros Paypal, Nitro 1 mois...' },
+        { name: 'Duree', value: 'Ex: 10m = 10 minutes, 1h = 1 heure, 2j = 2 jours' },
+        { name: 'Gagnants', value: 'Entre 1 et 10 gagnants.' },
+        { name: 'Conditions (optionnel)', value: 'Format : `voc:Xh msg:X inv:X`\nEx: `voc:5h msg:100 inv:2`\nLaisse vide si pas de conditions.' },
       ).setFooter({ text: 'Naytawa' })] });
   }
 
-  if (cmd === 'warn') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    const reason = args.slice(1).join(' ') || 'Aucune raison';
-    const w = warns.get(target.id) || [];
-    w.push({ type: 'manuel', raison: reason, by: message.author.tag, date: new Date().toLocaleDateString('fr-FR') });
-    warns.set(target.id, w);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Avertissement').setDescription(`Membre : ${target.user.tag}\nRaison : ${reason}\nTotal : ${w.length}`).setTimestamp()] });
-    try { await target.send(`Avertissement sur Naytawa : ${reason}`); } catch {}
-    const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Warn').setDescription(`Averti : ${target.user.tag}\nPar : ${message.author.tag}\nRaison : ${reason}\nTotal : ${w.length}`).setTimestamp()] });
-  }
-
-  if (cmd === 'unwarn') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    const num = parseInt(args[1]);
-    const w = warns.get(target.id) || [];
-    if (!num || num < 1 || num > w.length) return message.reply(`Numero invalide. ${target.user.tag} a ${w.length} warn(s).`);
-    const removed = w.splice(num-1,1)[0];
-    warns.set(target.id, w);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Warn supprime').setDescription(`Warn n${num} supprime.\nRaison : ${removed.raison}\nWarns restants : ${w.length}`).setTimestamp()] });
-  }
-
-  if (cmd === 'warns') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first() || message.member;
-    const w = warns.get(target.id) || [];
-    if (!w.length) return message.reply(`${target.user.tag} n'a aucun warn.`);
-    return message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle(`Warns de ${target.user.tag}`).setDescription(w.map((x,i)=>`${i+1}. ${x.raison||x.type} - ${x.date} par ${x.by||'Auto'}`).join('\n')).setFooter({ text: `Total : ${w.length}` }).setTimestamp()] });
-  }
-
-  if (cmd === 'mute') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    const duree = parseInt(args[1]) || 10;
-    const reason = args.slice(2).join(' ') || 'Aucune raison';
-    await target.timeout(duree*60*1000, reason);
-    const muteEnd = Math.floor((Date.now() + duree*60*1000)/1000);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Mute').setDescription(`Membre : ${target.user.tag}\nDuree : ${duree} min\nFin : <t:${muteEnd}:R>`).setTimestamp()] });
-    try { await target.send(`Tu as ete mute ${duree} minutes.\nRaison : ${reason}\nFin : <t:${muteEnd}:F>`); } catch {}
-    const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Mute').setDescription(`Mute : ${target.user.tag}\nPar : ${message.author.tag}\nDuree : ${duree} min`).setTimestamp()] });
-  }
-
-  if (cmd === 'unmute') {
-    if (!isMidperm(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    await target.timeout(null);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Unmute').setDescription(`${target.user.tag} demute.`).setTimestamp()] });
-    const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Unmute').setDescription(`Demute : ${target.user.tag}\nPar : ${message.author.tag}`).setTimestamp()] });
-  }
-
-  // ══════════════ WPERM ══════════════
-
-  if (cmd === 'kick') {
-    if (!isWperm(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    const reason = args.slice(1).join(' ') || 'Aucune raison';
-    await target.kick(reason);
-    message.reply({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Expulsion').setDescription(`Membre : ${target.user.tag}\nRaison : ${reason}`).setTimestamp()] });
-    const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Kick').setDescription(`Expulse : ${target.user.tag}\nPar : ${message.author.tag}`).setTimestamp()] });
-  }
-
+  // WL / UNWL — seulement rôle ROLE_WL_PERM
   if (cmd === 'wl') {
-    if (!isWperm(message.member)) return message.reply('Permission refusee.');
+    if (!canWL(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     whitelistSet.add(target.id);
     const role = message.guild.roles.cache.get(IDS.ROLE_WL);
     if (role) await target.roles.add(role).catch(() => {});
-    message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Whitelist').setDescription(`${target.user.tag} ajoute a la whitelist.`).setTimestamp()] });
+    return message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Whitelist').setDescription(`${target.user.tag} ajoute a la whitelist.\nIl ne sera plus affecte par la censure.`).setTimestamp()] });
   }
 
   if (cmd === 'unwl') {
-    if (!isWperm(message.member)) return message.reply('Permission refusee.');
+    if (!canWL(message.member)) return message.reply('Permission refusee.');
     const target = message.mentions.members.first();
     if (!target) return message.reply('Mentionne un membre.');
     whitelistSet.delete(target.id);
     const role = message.guild.roles.cache.get(IDS.ROLE_WL);
     if (role) await target.roles.remove(role).catch(() => {});
-    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Whitelist').setDescription(`${target.user.tag} retire de la whitelist.`).setTimestamp()] });
+    return message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Whitelist').setDescription(`${target.user.tag} retire de la whitelist.`).setTimestamp()] });
   }
 
   if (cmd === 'wllist') {
-    if (!isWperm(message.member)) return message.reply('Permission refusee.');
+    if (!canWL(message.member)) return message.reply('Permission refusee.');
     return message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Whitelist').setDescription(whitelistSet.size ? [...whitelistSet].map(id=>`<@${id}>`).join('\n') : 'Vide').setTimestamp()] });
   }
 
-  // ══════════════ ADMIN ══════════════
-
-  if (cmd === 'ban') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    const reason = args.slice(1).join(' ') || 'Aucune raison';
-    await target.ban({ reason });
-    message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Bannissement').setDescription(`Membre : ${target.user.tag}\nRaison : ${reason}`).setTimestamp()] });
-    const logCh = message.guild.channels.cache.get(IDS.LOG_MOD);
-    if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Ban').setDescription(`Banni : ${target.user.tag}\nPar : ${message.author.tag}\nRaison : ${reason}`).setTimestamp()] });
-  }
-
-  if (cmd === 'clear') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
-    const n = parseInt(args[0]);
-    if (!n || n < 1 || n > 100) return message.reply('Nombre entre 1 et 100.');
-    const deleted = await message.channel.bulkDelete(n+1, true);
-    const m = await message.channel.send(`${deleted.size-1} messages supprimes.`);
-    setTimeout(() => m.delete().catch(() => {}), 3000);
-  }
-
+  // CENSURE
   if (cmd === 'censure') {
     if (!isAdmin(message.member)) return message.reply('Permission refusee.');
     const etat = args[0]?.toLowerCase();
@@ -741,54 +711,24 @@ client.on('messageCreate', async message => {
     antiSpamExclus.add(message.channel.id); return message.reply('Anti-spam desactive dans ce salon.');
   }
 
-  if (cmd === 'wperm') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    wpermSet.add(target.id);
-    const role = message.guild.roles.cache.get(IDS.ROLE_WPERM);
-    if (role) await target.roles.add(role).catch(() => {});
-    return message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Wperm attribue').setDescription(`${target.user.tag} a maintenant les permissions Wperm.\nCommandes disponibles : kick, wl, unwl, wllist + tout midperm.`).setTimestamp()] });
+  if (cmd === 'gif') {
+    if (message.author.id !== OWNER_ID) return message.reply('Permission refusee.');
+    const lien = args[0];
+    if (!lien) return message.reply('Usage : `-gif <lien>`');
+    await message.channel.send(lien);
+    await message.delete().catch(() => {});
   }
 
-  if (cmd === 'unwperm') {
+  // ══ VOC TEMPORAIRE CONFIG ══
+  if (cmd === 'vocsetup') {
     if (!isAdmin(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    wpermSet.delete(target.id);
-    const role = message.guild.roles.cache.get(IDS.ROLE_WPERM);
-    if (role) await target.roles.remove(role).catch(() => {});
-    return message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Wperm retire').setDescription(`${target.user.tag} n'a plus les permissions Wperm.`).setTimestamp()] });
-  }
-
-  if (cmd === 'wpermlist') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
-    return message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Liste Wperm').setDescription(wpermSet.size ? [...wpermSet].map(id=>`<@${id}>`).join('\n') : 'Vide').setTimestamp()] });
-  }
-
-  if (cmd === 'midperm') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    midpermSet.add(target.id);
-    const role = message.guild.roles.cache.get(IDS.ROLE_MIDPERM);
-    if (role) await target.roles.add(role).catch(() => {});
-    return message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Midperm attribue').setDescription(`${target.user.tag} a maintenant les permissions Midperm.\nCommandes disponibles : warn, unwarn, warns, mute, unmute, giveaway, helpgiveaway.`).setTimestamp()] });
-  }
-
-  if (cmd === 'unmidperm') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
-    const target = message.mentions.members.first();
-    if (!target) return message.reply('Mentionne un membre.');
-    midpermSet.delete(target.id);
-    const role = message.guild.roles.cache.get(IDS.ROLE_MIDPERM);
-    if (role) await target.roles.remove(role).catch(() => {});
-    return message.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Midperm retire').setDescription(`${target.user.tag} n'a plus les permissions Midperm.`).setTimestamp()] });
-  }
-
-  if (cmd === 'midpermlist') {
-    if (!isAdmin(message.member)) return message.reply('Permission refusee.');
-    return message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Liste Midperm').setDescription(midpermSet.size ? [...midpermSet].map(id=>`<@${id}>`).join('\n') : 'Vide').setTimestamp()] });
+    // -vocsetup #salon-vocal #catégorie
+    const channel = message.mentions.channels.first();
+    if (!channel) return message.reply('Mentionne le salon vocal generateur. Usage : `-vocsetup #salon`');
+    if (channel.type !== ChannelType.GuildVoice) return message.reply('Ce salon doit etre un salon vocal !');
+    VOC_GENERATOR_CHANNEL_ID = channel.id;
+    VOC_CATEGORY_ID = channel.parentId || null;
+    return message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Voc temporaire configure').setDescription(`Salon generateur : <#${channel.id}>\nCategorie : ${channel.parent?.name || 'Meme categorie'}\n\nQuand un membre rejoint <#${channel.id}>, une voc privee temporaire sera creee.\nElle se supprime apres 10 minutes si vide.`).setTimestamp()] });
   }
 
   if (cmd === 'test') {
@@ -796,7 +736,8 @@ client.on('messageCreate', async message => {
     return message.reply({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Diagnostic Naytawa Bot')
       .addFields(
         { name: 'Bot', value: `Tag : ${client.user.tag}\nPing : ${client.ws.ping}ms\nUptime : ${Math.floor(client.uptime/1000)}s` },
-        { name: 'Systemes', value: `Anti-insultes : ${censureActif?'Actif':'Desactive'}\nWhitelist : ${whitelistSet.size}\nWperm : ${wpermSet.size}\nMidperm : ${midpermSet.size}` },
+        { name: 'Systemes', value: `Anti-insultes : ${censureActif?'Actif':'Desactive'}\nWhitelist : ${whitelistSet.size}\nVoc temporaires actives : ${tempVocs.size}` },
+        { name: 'Voc generateur', value: VOC_GENERATOR_CHANNEL_ID ? `<#${VOC_GENERATOR_CHANNEL_ID}>` : 'Non configure (utilise -vocsetup #salon)' },
         { name: 'Donnees', value: `Messages : ${messageCount.size}\nVocal : ${vocTime.size}\nWarns : ${warns.size}\nInvitations : ${inviteCount.size}\nGiveaways : ${giveaways.size}` },
         { name: 'Salons', value: ['SALON_STATS','SALON_TOP_MSG','SALON_TOP_VOC','SALON_TOP_INVITES','SALON_TICKET_PANEL','LOG_MOD'].map(k=>`${k} : ${message.guild.channels.cache.get(IDS[k])?'OK':'MANQUANT'}`).join('\n') },
       ).setTimestamp()] });
@@ -807,14 +748,6 @@ client.on('messageCreate', async message => {
     const guild = message.guild;
     const data = JSON.stringify({ channels: guild.channels.cache.map(c=>({name:c.name,type:c.type,position:c.position,parentId:c.parentId})), roles: guild.roles.cache.filter(r=>r.id!==guild.id).map(r=>({name:r.name,color:r.color,permissions:r.permissions.bitfield.toString(),position:r.position})), memberCount: guild.memberCount, name: guild.name, date: new Date().toISOString() }, null, 2);
     return message.reply({ content: 'Backup genere !', files: [new AttachmentBuilder(Buffer.from(data), { name: `backup-${Date.now()}.json` })] });
-  }
-
-  if (cmd === 'gif') {
-    if (message.author.id !== OWNER_ID) return message.reply('Permission refusee.');
-    const lien = args[0];
-    if (!lien) return message.reply('Usage : `-gif <lien>`');
-    await message.channel.send(lien);
-    await message.delete().catch(() => {});
   }
 
   if (cmd === 'make' && args[0] === 'panel') {
@@ -840,35 +773,24 @@ client.on('messageCreate', async message => {
     setTimeout(() => confirm.delete().catch(() => {}), 3000);
     await message.delete().catch(() => {});
   }
+
+  // HELP — avec une page par commande libre
+  if (cmd === 'help') {
+    const menu = new StringSelectMenuBuilder().setCustomId('help_select').setPlaceholder('Choisis une commande').addOptions(
+      new StringSelectMenuOptionBuilder().setLabel('-naytawa').setDescription('Obtenir le role Naytawa gratuit').setValue('cmd_naytawa'),
+      new StringSelectMenuOptionBuilder().setLabel('-avatar').setDescription('Afficher la photo de profil').setValue('cmd_avatar'),
+      new StringSelectMenuOptionBuilder().setLabel('-profil').setDescription('Profil interactif d un membre').setValue('cmd_profil'),
+      new StringSelectMenuOptionBuilder().setLabel('-s-u').setDescription('Stats completes d un membre').setValue('cmd_su'),
+      new StringSelectMenuOptionBuilder().setLabel('-invites').setDescription('Voir les invitations d un membre').setValue('cmd_invites'),
+      new StringSelectMenuOptionBuilder().setLabel('-topinvites').setDescription('Top 10 des inviteurs').setValue('cmd_topinvites'),
+      new StringSelectMenuOptionBuilder().setLabel('-giveaway').setDescription('Creer un giveaway').setValue('cmd_giveaway'),
+      new StringSelectMenuOptionBuilder().setLabel('-helpgiveaway').setDescription('Guide du systeme giveaway').setValue('cmd_helpgiveaway'),
+      new StringSelectMenuOptionBuilder().setLabel('-wl / -unwl / -wllist').setDescription('Gestion whitelist censure').setValue('cmd_wl'),
+      new StringSelectMenuOptionBuilder().setLabel('Panels & Admin').setDescription('Commandes admin et panels').setValue('cmd_admin'),
+    );
+    return message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Naytawa Bot — Aide').setDescription('Selectionne une commande pour voir sa description detaillee.').setFooter({ text: `Prefixe : ${PREFIX}` }).setTimestamp()], components: [new ActionRowBuilder().addComponents(menu)] });
+  }
 });
-
-// ══ GIVEAWAY — parse duree ══
-function parseDuree(str) {
-  const s = str.toLowerCase().trim();
-  const val = parseInt(s);
-  if (s.endsWith('j')) return val * 86400000;
-  if (s.endsWith('h')) return val * 3600000;
-  if (s.endsWith('m')) return val * 60000;
-  return val * 60000; // par défaut minutes
-}
-
-function parseDureeLabel(ms) {
-  if (ms >= 86400000) return `${ms/86400000}j`;
-  if (ms >= 3600000)  return `${ms/3600000}h`;
-  return `${ms/60000}min`;
-}
-
-function parseConditions(str) {
-  const cond = { vocMin: 0, msgMin: 0, invMin: 0 };
-  if (!str) return cond;
-  const vocMatch = str.match(/voc:(\d+)h?/i);
-  const msgMatch = str.match(/msg:(\d+)/i);
-  const invMatch = str.match(/inv:(\d+)/i);
-  if (vocMatch) cond.vocMin = parseInt(vocMatch[1]);
-  if (msgMatch) cond.msgMin = parseInt(msgMatch[1]);
-  if (invMatch) cond.invMin = parseInt(invMatch[1]);
-  return cond;
-}
 
 // ══ PANELS ══
 async function sendPanelReglement(guild) {
@@ -907,7 +829,7 @@ async function sendPanelTickets(guild) {
 async function sendPanelPrison(guild) {
   const salon = guild.channels.cache.get(IDS.SALON_PRISON);
   if (!salon) return;
-  await salon.send({ embeds: [new EmbedBuilder().setColor('#8B0000').setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) }).setTitle('Bienvenue en prison').setDescription(['> Salut a toi, tu as atterri ici car tu as enfreint les regles.','','Ta sanction est suffisamment grave pour necessiter un passage en prison.','','Pour en sortir, une mission t\'attend.','Un membre de la gestion prison va te contacter.','Sois patient et respectueux — c\'est ta seule chance.','','Si tu contournes la procedure, ta sanction sera alourdie.','','*Bonne chance.*'].join('\n')).setFooter({ text: 'Naytawa' })] }).catch(e => console.error(e.message));
+  await salon.send({ embeds: [new EmbedBuilder().setColor('#8B0000').setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) }).setTitle('Bienvenue en prison').setDescription(['> Salut a toi, tu as atterri ici car tu as enfreint les regles.','','Ta sanction est suffisamment grave pour necessiter un passage en prison.','','Pour en sortir, une mission t\'attend.','Un membre de la gestion prison va te contacter.','Sois patient et respectueux.','','Si tu contournes la procedure, ta sanction sera alourdie.','','*Bonne chance.*'].join('\n')).setFooter({ text: 'Naytawa' })] }).catch(e => console.error(e.message));
 }
 
 async function sendPanelPartenariat(guild) {
@@ -916,33 +838,7 @@ async function sendPanelPartenariat(guild) {
   await salon.send({ embeds: [new EmbedBuilder().setColor(COLOR).setAuthor({ name: 'Naytawa', iconURL: guild.iconURL({ dynamic: true }) }).setTitle('Partenariat').setImage(GIF.PARTENARIAT).setDescription(['> Tu souhaites devenir partenaire de Naytawa ?','','01 - Minimum 100 membres','02 - Serveur actif','03 - Pas de contenu illicite','04 - Avoir un salon partenariat','',`Ouvre un ticket dans <#${IDS.SALON_TICKET_PANEL}>`].join('\n')).setFooter({ text: 'Naytawa' })] }).catch(e => console.error(e.message));
 }
 
-// ══ LOGS VOC ══
-client.on('voiceStateUpdate', async (oldState, newState) => {
-  try {
-    const logCh = newState.guild.channels.cache.get(IDS.LOG_VOC);
-    const member = newState.member;
-    if (!member) return;
-    if (!oldState.channelId && newState.channelId) {
-      vocJoin.set(member.id, Date.now());
-      if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Rejoint vocal').setDescription(`Membre : ${member.user.tag}\nSalon : <#${newState.channelId}>\nDate : <t:${Math.floor(Date.now()/1000)}:F>`).setTimestamp()] });
-    } else if (oldState.channelId && !newState.channelId) {
-      const join = vocJoin.get(member.id);
-      if (join) {
-        const elapsed = Date.now() - join;
-        vocTime.set(member.id, (vocTime.get(member.id)||0) + elapsed);
-        vocJoin.delete(member.id);
-        const h = Math.floor(elapsed/3600000); const m2 = Math.floor((elapsed%3600000)/60000);
-        if (logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Quitte vocal').setDescription(`Membre : ${member.user.tag}\nSalon : <#${oldState.channelId}>\nTemps : ${h}h ${m2}m`).setTimestamp()] });
-        updateTopVoc().catch(() => {});
-      }
-    } else if (oldState.channelId !== newState.channelId && logCh) {
-      logCh.send({ embeds: [new EmbedBuilder().setColor('#faa61a').setTitle('Changement vocal').setDescription(`Membre : ${member.user.tag}\nDe : <#${oldState.channelId}>\nVers : <#${newState.channelId}>`).setTimestamp()] });
-    }
-    if (!oldState.serverMute && newState.serverMute && logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Mute vocal').setDescription(`Membre : ${member.user.tag}`).setTimestamp()] });
-    if (oldState.serverMute && !newState.serverMute && logCh) logCh.send({ embeds: [new EmbedBuilder().setColor('#3ba55c').setTitle('Demute vocal').setDescription(`Membre : ${member.user.tag}`).setTimestamp()] });
-  } catch (e) { console.error('VoiceState:', e.message); }
-});
-
+// ══ LOGS ══
 client.on('messageDelete', async message => {
   if (message.author?.bot) return;
   const logCh = message.guild?.channels.cache.get(IDS.LOG_MSG);
@@ -967,109 +863,61 @@ client.on('interactionCreate', async interaction => {
     const guild  = interaction.guild;
 
     // ─── MODALS ───
-    if (interaction.isModalSubmit()) {
+    if (interaction.isModalSubmit() && interaction.customId === 'gw_create') {
+      await interaction.deferReply({ ephemeral: true });
+      const prix       = interaction.fields.getTextInputValue('gw_prix');
+      const dureeStr   = interaction.fields.getTextInputValue('gw_duree');
+      const gagnants   = Math.min(10, Math.max(1, parseInt(interaction.fields.getTextInputValue('gw_gagnants'))||1));
+      const condStr    = interaction.fields.getTextInputValue('gw_conditions');
+      const dureeMs    = parseDuree(dureeStr);
+      const conditions = parseConditions(condStr);
+      const endTime    = Date.now() + dureeMs;
 
-      // Création giveaway
-      if (interaction.customId === 'gw_create') {
-        await interaction.deferReply({ ephemeral: true });
-        const prix      = interaction.fields.getTextInputValue('gw_prix');
-        const dureeStr  = interaction.fields.getTextInputValue('gw_duree');
-        const gagnants  = Math.min(10, Math.max(1, parseInt(interaction.fields.getTextInputValue('gw_gagnants'))||1));
-        const condStr   = interaction.fields.getTextInputValue('gw_conditions');
-        const dureeMs   = parseDuree(dureeStr);
-        const conditions = parseConditions(condStr);
-        const endTime   = Date.now() + dureeMs;
+      const condLines = [];
+      if (conditions.vocMin > 0) condLines.push(`Vocal : ${conditions.vocMin}h minimum`);
+      if (conditions.msgMin > 0) condLines.push(`Messages : ${conditions.msgMin} minimum`);
+      if (conditions.invMin > 0) condLines.push(`Invitations : ${conditions.invMin} minimum`);
 
-        const condLines = [];
-        if (conditions.vocMin > 0) condLines.push(`Vocal : ${conditions.vocMin}h minimum`);
-        if (conditions.msgMin > 0) condLines.push(`Messages : ${conditions.msgMin} minimum`);
-        if (conditions.invMin > 0) condLines.push(`Invitations : ${conditions.invMin} minimum`);
+      const embed = new EmbedBuilder().setColor('#f1c40f').setTitle(`Giveaway — ${prix}`)
+        .setDescription([
+          `Fin : <t:${Math.floor(endTime/1000)}:R> (<t:${Math.floor(endTime/1000)}:F>)`,
+          `Gagnants : ${gagnants}`,
+          `Duree : ${parseDureeLabel(dureeMs)}`,
+          condLines.length ? `\nConditions :\n${condLines.join('\n')}` : '\nPas de conditions.',
+          `\nParticipants : 0`,
+        ].join('\n')).setTimestamp().setFooter({ text: 'Naytawa • Giveaway' });
 
-        const embed = new EmbedBuilder()
-          .setColor('#f1c40f')
-          .setTitle(`Giveaway — ${prix}`)
-          .setDescription([
-            `Fin : <t:${Math.floor(endTime/1000)}:R> (<t:${Math.floor(endTime/1000)}:F>)`,
-            `Gagnants : ${gagnants}`,
-            `Duree : ${parseDureeLabel(dureeMs)}`,
-            condLines.length ? `\nConditions :\n${condLines.join('\n')}` : '\nPas de conditions.',
-            `\nParticipants : 0`,
-          ].join('\n'))
-          .setTimestamp()
-          .setFooter({ text: 'Naytawa • Giveaway' });
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('gw_participer').setLabel('Participer').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('gw_participants').setLabel('Voir les participants').setStyle(ButtonStyle.Secondary),
+      );
 
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('gw_participer').setLabel('Participer').setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId('gw_participants').setLabel('Voir les participants').setStyle(ButtonStyle.Secondary),
-        );
-
-        const gwMsg = await interaction.channel.send({ embeds: [embed], components: [row] });
-
-        giveaways.set(gwMsg.id, {
-          messageId: gwMsg.id,
-          channelId: interaction.channel.id,
-          guildId: guild.id,
-          prix, nbGagnants: gagnants, conditions,
-          endTime, participants: [], ended: false,
-        });
-
-        await interaction.editReply({ content: `Giveaway lance ! Termine <t:${Math.floor(endTime/1000)}:R>.` });
-        return;
-      }
+      const gwMsg = await interaction.channel.send({ embeds: [embed], components: [row] });
+      giveaways.set(gwMsg.id, { messageId: gwMsg.id, channelId: interaction.channel.id, guildId: guild.id, prix, nbGagnants: gagnants, conditions, endTime, participants: [], ended: false });
+      await interaction.editReply({ content: `Giveaway lance ! Termine <t:${Math.floor(endTime/1000)}:R>.` });
+      return;
     }
 
     // ─── SELECT MENUS ───
     if (interaction.isStringSelectMenu()) {
 
-      // Help
+      // Help par commande
       if (interaction.customId === 'help_select') {
         const val = interaction.values[0];
-        let embed;
-        if (val === 'libre') embed = new EmbedBuilder().setColor(COLOR).setTitle('Commandes libres').addFields(
-          { name: '-naytawa', value: 'Obtenir le role Naytawa gratuitement.' },
-          { name: '-avatar [@user]', value: 'Afficher la photo de profil.' },
-          { name: '-profil [@user]', value: 'Profil interactif.' },
-          { name: '-s-u [@user]', value: 'Stats completes : messages, vocal, invitations, warns...' },
-          { name: '-love', value: 'Envoie une video speciale.' },
-          { name: '-invites [@user]', value: 'Nombre d\'invitations.' },
-          { name: '-topinvites', value: 'Top 10 des inviteurs.' },
-          { name: '-help', value: 'Ce menu d\'aide.' },
-        );
-        if (val === 'modo') embed = new EmbedBuilder().setColor('#faa61a').setTitle('Moderation').addFields(
-          { name: 'Midperm+', value: '-warn @user <raison>\n-unwarn @user <numero>\n-warns [@user]\n-mute @user <min> [raison]\n-unmute @user\n-giveaway\n-helpgiveaway' },
-          { name: 'Wperm+', value: '-kick @user [raison]\n-wl @user\n-unwl @user\n-wllist' },
-          { name: 'Admin', value: '-ban @user [raison]\n-clear <1-100>' },
-        );
-        if (val === 'giveaway') embed = new EmbedBuilder().setColor('#f1c40f').setTitle('Giveaway (Midperm+)').addFields(
-          { name: '-giveaway', value: 'Ouvre un formulaire pour creer un giveaway en quelques secondes.' },
-          { name: '-helpgiveaway', value: 'Guide detaille du giveaway.' },
-          { name: 'Format conditions', value: '`voc:Xh msg:X inv:X`\nEx: `voc:5h msg:100 inv:2`' },
-        );
-        if (val === 'perms') embed = new EmbedBuilder().setColor(COLOR).setTitle('Permissions (Admin)').addFields(
-          { name: 'Wperm', value: '-wperm @user | -unwperm @user | -wpermlist' },
-          { name: 'Midperm', value: '-midperm @user | -unmidperm @user | -midpermlist' },
-          { name: 'Whitelist censure (Wperm+)', value: '-wl @user | -unwl @user | -wllist' },
-        );
-        if (val === 'admin') embed = new EmbedBuilder().setColor('#ed4245').setTitle('Admin').addFields(
-          { name: 'Configuration', value: '-censure on/off\n-antispam (toggle salon)\n-test (diagnostic)\n-backup (sauvegarde)' },
-          { name: 'Owner uniquement', value: '-gif <lien>' },
-        );
-        if (val === 'panels') embed = new EmbedBuilder().setColor(COLOR).setTitle('Panels (Admin)').addFields(
-          { name: 'Commandes', value: '-panel reglement\n-panel roles\n-panel tickets\n-panel prison\n-panel top\n-panel topinvites\n-panel partenariat\n-make panel <titre> <desc>' },
-        );
-        if (val === 'mesperm') {
-          const niveau = getNiveau(member);
-          const lignes = ['Libres : naytawa, avatar, profil, s-u, love, invites, topinvites, help'];
-          if (isMidperm(member)) lignes.push('Midperm : warn, unwarn, warns, mute, unmute, giveaway, helpgiveaway');
-          if (isWperm(member))   lignes.push('Wperm : kick, wl, unwl, wllist');
-          if (isAdmin(member))   lignes.push('Admin : ban, clear, censure, antispam, wperm, midperm, test, backup, panel, make panel');
-          if (member.id === OWNER_ID) lignes.push('Owner : gif');
-          embed = new EmbedBuilder().setColor(COLOR).setTitle('Mes permissions').addFields(
-            { name: 'Niveau', value: `**${niveau}**` },
-            { name: 'Commandes disponibles', value: lignes.join('\n') },
-          );
-        }
-        if (embed) return interaction.reply({ embeds: [embed.setFooter({ text: 'Naytawa' }).setTimestamp()], ephemeral: true });
+        const pages = {
+          cmd_naytawa: { title: '-naytawa', desc: 'Obtenir le role Naytawa gratuitement.\n\nUtilisation : `-naytawa`\n\nDonne le role <@&' + IDS.ROLE_NAYTAWA + '> automatiquement a la personne qui utilise la commande.\nPas besoin de permission speciale.' },
+          cmd_avatar:  { title: '-avatar [@user]', desc: 'Afficher la photo de profil d\'un membre.\n\nUtilisation : `-avatar` ou `-avatar @user`\n\nSi aucun membre n\'est mentionne, affiche ta propre photo de profil.' },
+          cmd_profil:  { title: '-profil [@user]', desc: 'Afficher le profil interactif d\'un membre.\n\nUtilisation : `-profil` ou `-profil @user`\n\nMenu interactif avec :\n- Date d\'arrivee\n- Photo de profil\n- Stats messages et vocal\n- Derniers roles ajoutes/retires\n- Avertissements' },
+          cmd_su:      { title: '-s-u [@user]', desc: 'Afficher les stats completes d\'un membre.\n\nUtilisation : `-s-u` ou `-s-u @user`\n\nAffiche :\n- Nombre de messages et classement\n- Temps vocal et classement\n- Invitations et classement\n- Avertissements\n- Statut vocal actuel\n- Date d\'arrivee\n- Roles\n\nMenu pour voir le detail vocal, warns, roles et activite.' },
+          cmd_invites: { title: '-invites [@user]', desc: 'Voir le nombre d\'invitations d\'un membre.\n\nUtilisation : `-invites` ou `-invites @user`\n\nAffiche combien de membres ce joueur a invite sur le serveur.' },
+          cmd_topinvites: { title: '-topinvites', desc: 'Afficher le top 10 des inviteurs du serveur.\n\nUtilisation : `-topinvites`\n\nAffiche le classement des 10 membres ayant invite le plus de personnes.' },
+          cmd_giveaway: { title: '-giveaway', desc: 'Creer un giveaway. (Admin)\n\nUtilisation : `-giveaway`\n\nOuvre un formulaire pour configurer :\n- Le prix\n- La duree (ex: 1h, 2j)\n- Le nombre de gagnants\n- Les conditions (optionnel) : `voc:Xh msg:X inv:X`\n\nLes participants cliquent sur "Participer" et voient leurs stats vs conditions en temps reel.' },
+          cmd_helpgiveaway: { title: '-helpgiveaway', desc: 'Afficher le guide du systeme giveaway.\n\nUtilisation : `-helpgiveaway`\n\nGuide complet sur le fonctionnement des giveaways, le format des conditions et le deroulement du tirage.' },
+          cmd_wl: { title: '-wl / -unwl / -wllist', desc: `Gestion de la whitelist censure. (Role special requis)\n\nUtilisation :\n\`-wl @user\` — Ajouter a la whitelist\n\`-unwl @user\` — Retirer de la whitelist\n\`-wllist\` — Voir la liste\n\nLes personnes dans la whitelist ne sont pas affectees par l'anti-insultes et l'anti-spam.\nSeules les personnes avec le role autorise peuvent utiliser ces commandes.` },
+          cmd_admin: { title: 'Panels & Admin', desc: 'Commandes administrateur :\n\n`-panel reglement` — Panel reglement\n`-panel roles` — Panel notifications\n`-panel tickets` — Panel tickets\n`-panel prison` — Panel prison\n`-panel top` — Top messages et vocal\n`-panel topinvites` — Top invitations\n`-panel partenariat` — Panel partenariat\n`-make panel <titre> <desc>` — Panel personnalise\n`-censure on/off` — Anti-insultes\n`-antispam` — Toggle anti-spam salon\n`-vocsetup #salon` — Configurer les vocs temporaires\n`-test` — Diagnostic\n`-backup` — Sauvegarde serveur\n`-gif <lien>` — Envoyer un gif (owner)' },
+        };
+        const page = pages[val];
+        if (page) return interaction.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle(page.title).setDescription(page.desc).setFooter({ text: 'Naytawa' }).setTimestamp()], ephemeral: true });
       }
 
       // Notifications
@@ -1143,11 +991,9 @@ client.on('interactionCreate', async interaction => {
     // ─── BOUTONS ───
     if (interaction.isButton()) {
 
-      // Giveaway — Participer
       if (interaction.customId === 'gw_participer') {
         const gwData = giveaways.get(interaction.message.id);
         if (!gwData || gwData.ended) return interaction.reply({ content: 'Ce giveaway est termine.', ephemeral: true });
-
         const voc  = vocTime.get(member.id)||0;
         const msgs = messageCount.get(member.id)||0;
         const inv  = inviteCount.get(member.id)||0;
@@ -1156,7 +1002,6 @@ client.on('interactionCreate', async interaction => {
         if (gwData.conditions.msgMin > 0) condLines.push(`Messages : ${msgs} / ${gwData.conditions.msgMin} ${msgs >= gwData.conditions.msgMin ? '✅' : '❌'}`);
         if (gwData.conditions.invMin > 0) condLines.push(`Invitations : ${inv} / ${gwData.conditions.invMin} ${inv >= gwData.conditions.invMin ? '✅' : '❌'}`);
         const condText = condLines.length ? `\n\nTes stats :\n${condLines.join('\n')}` : '';
-
         if (gwData.participants.includes(member.id)) {
           gwData.participants = gwData.participants.filter(id => id !== member.id);
           giveaways.set(interaction.message.id, gwData);
@@ -1164,7 +1009,6 @@ client.on('interactionCreate', async interaction => {
           await interaction.message.edit({ embeds: [EmbedBuilder.from(interaction.message.embeds[0]).setDescription(newDesc)] }).catch(() => {});
           return interaction.reply({ content: `Tu t'es desincrit.${condText}`, ephemeral: true });
         }
-
         gwData.participants.push(member.id);
         giveaways.set(interaction.message.id, gwData);
         const newDesc = interaction.message.embeds[0].description.replace(/Participants : \d+/, `Participants : ${gwData.participants.length}`);
@@ -1172,7 +1016,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: `Tu participes !${condText}`, ephemeral: true });
       }
 
-      // Giveaway — Participants
       if (interaction.customId === 'gw_participants') {
         const gwData = giveaways.get(interaction.message.id);
         if (!gwData) return interaction.reply({ content: 'Donnees introuvables.', ephemeral: true });
@@ -1180,7 +1023,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: `**Participants (${gwData.participants.length}) :**\n${lines}`, ephemeral: true });
       }
 
-      // Tickets
       if (interaction.customId === 'ticket_prendre') {
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId('ticket_fermer').setLabel('Fermer le ticket').setStyle(ButtonStyle.Danger),
@@ -1190,6 +1032,7 @@ client.on('interactionCreate', async interaction => {
         await interaction.channel.send(`Ce ticket est pris en charge par ${member} !`);
         return;
       }
+
       if (interaction.customId === 'ticket_fermer') {
         await interaction.reply({ embeds: [new EmbedBuilder().setColor('#ed4245').setTitle('Ticket ferme').setDescription(`Ferme par ${member}\nSuppression dans 5s...`).setTimestamp()] });
         const logCh = guild.channels.cache.get(IDS.LOG_TICKET);
@@ -1201,21 +1044,5 @@ client.on('interactionCreate', async interaction => {
 
   } catch (e) { console.error('Interaction:', e.message); }
 });
-
-// Workaround pour montrer le modal depuis une commande texte
-// (on doit passer par un bouton éphémère intermédiaire)
-async function interaction_showModal_workaround(message, modal) {
-  const btn = new ButtonBuilder().setCustomId('gw_open_modal').setLabel('Configurer le giveaway').setStyle(ButtonStyle.Primary);
-  const m = await message.reply({ content: 'Clique sur le bouton pour configurer le giveaway :', components: [new ActionRowBuilder().addComponents(btn)] });
-  // Attendre le clic (60 secondes)
-  const collector = m.createMessageComponentCollector({ filter: i => i.user.id === message.author.id && i.customId === 'gw_open_modal', time: 60000, max: 1 });
-  collector.on('collect', async i => {
-    await i.showModal(modal);
-    await m.edit({ content: 'Formulaire ouvert !', components: [] }).catch(() => {});
-  });
-  collector.on('end', (collected) => {
-    if (collected.size === 0) m.edit({ content: 'Temps ecoule.', components: [] }).catch(() => {});
-  });
-}
 
 client.login(process.env.DISCORD_TOKEN);
